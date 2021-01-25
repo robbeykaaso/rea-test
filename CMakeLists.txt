@@ -46,3 +46,9 @@ target_link_libraries(REA_TEST PRIVATE
     ${REA_LIBS})
 
 include_directories(${REA_INCLUDE_DIRS})
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_LIST_DIR}/test.qml"
+    "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/.."
+    COMMENT "copying resource.")
