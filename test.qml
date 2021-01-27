@@ -26,6 +26,26 @@ ApplicationWindow {
                 onClicked: Pipeline.run("doUnitTest", 0, "", false)
             }
             MenuItem{
+                text: "TestQMLStorage"
+                onClicked: Pipeline.run("writeJson2", "testFS2.json", "testQMLStg", false, {"testFS2.json": {hello: "world"}})
+                Component.onCompleted: {
+                    Pipeline.find("writeJson2")
+                    .next(function(aInput){
+                        var dt = aInput.varData("testFS2.json", "object")
+                        console.assert(dt["hello"] === "world")
+                        aInput.var("testFS2.json", {hello: "world2"}).outs(aInput.data(), "readJson2")
+                        dt = aInput.varData("testFS2.json", "object")
+                        console.assert(dt["hello"] === "world2")
+                    }, "testQMLStg", {vtype: "string"})
+                    .next("readJson2")
+                    .next(function(aInput){
+                        var dt = aInput.varData("testFS2.json", "object")
+                        console.assert(dt["hello"] === "world")
+                        aInput.outsB("testFS2.json", "deletePath").outs("Pass: testQMLStorage ", "testSuccess");
+                    }, "testQMLStg", {vtype: "string"})
+                }
+            }
+            MenuItem{
                 text: "logTransaction"
                 onClicked: Pipeline.run("logTransaction", 0, "", false)
             }
@@ -1135,9 +1155,9 @@ ApplicationWindow {
         content: TreeView0{
             anchors.fill: parent
             imagePath: {
-                "image": 'image.png',
-                "text": 'text.png',
-                "shape": 'shape.png'
+                "image": '../../resource/image.png',
+                "text": '../../resource/text.png',
+                "shape": '../../resource/shape.png'
             }
             selectWay: 'background'
             selectColor: 'blue'

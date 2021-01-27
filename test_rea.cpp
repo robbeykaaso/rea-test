@@ -280,7 +280,7 @@ static regPip<QJsonObject> test_param([](stream<QJsonObject>* aInput){
     aInput->setData(rea::Json("qml", true,
                               "rea", true,
                               "qsg", true,
-                              "stg", false,
+                              "stg", true,
                               "tcp", false,
                               "aop", false,
                               "modbus", false))->out();
