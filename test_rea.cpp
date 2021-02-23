@@ -262,6 +262,23 @@ void test11(){
     rea::pipeline::run<double>("test11", 1);
 }
 
+void test12(){
+    auto ret = rea::pipeline::input<int>(0)
+                   ->call<int>([](rea::stream<int>* aInput){
+                       aInput->setData(aInput->data() + 1)->out();
+                   }, rea::Json("thread", 1))
+                   ->call<QString>([](rea::stream<int>* aInput){
+                       assert(aInput->data() == 1);
+                       aInput->outs<QString>("world");
+                   }, rea::Json("thread", 2))
+                   ->call<QString>([](rea::stream<QString>* aInput){
+                       assert(aInput->data() == "world");
+                       aInput->setData("hello")->out();
+                   });
+    assert(ret->data() == "hello");
+    rea::pipeline::run<QString>("testSuccess", "Pass: test12");
+}
+
 void testReactive2(){
     test1(); // test anonymous next
     test2(); // test specific next and multithread
@@ -274,6 +291,7 @@ void testReactive2(){
     test9(); // test pipe parallel
     test10(); // test pipe throttle
     test11(); //test pipe aop
+    test12(); //test stream program
 }
 
 static regPip<QJsonObject> test_param([](stream<QJsonObject>* aInput){

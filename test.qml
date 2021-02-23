@@ -29,6 +29,7 @@ ApplicationWindow {
                 text: "TestQMLStorage"
                 onClicked: Pipeline.run("writeJson2", "testFS2.json", "testQMLStg", false, {"testFS2.json": {hello: "world"}})
                 Component.onCompleted: {
+                    console.log("hi")
                     Pipeline.find("writeJson2")
                     .next(function(aInput){
                         var dt = aInput.varData("testFS2.json", "object")
@@ -58,6 +59,25 @@ ApplicationWindow {
                         console.assert(dt["hello"] === "world")
                         aInput.outsB("testFS2.json", "deletePath").outs("Pass: testQMLStorage ", "testSuccess");
                     }, "testQMLStg2", {vtype: "string"})
+                }
+            }
+            MenuItem{
+                text: "TestQMLStreamProgram"
+                onClicked: {
+                    var ret = Pipeline.input(0)
+                    .call(function(aInput){
+                        aInput.setData(aInput.data() + 1).out()
+                    })
+                    .call(function(aInput){
+                        console.assert(aInput.data() === 1)
+                        aInput.outs("world")
+                    }, {vtype: "string"})
+                    .call(function(aInput){
+                        console.assert(aInput.data() === "world")
+                        aInput.setData("hello").out()
+                    })
+                    console.assert(ret.data() === "hello")
+                    Pipeline.run("testSuccess", "Pass: test12_")
                 }
             }
             MenuItem{
