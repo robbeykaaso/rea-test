@@ -1,6 +1,7 @@
 #include "reaC++.h"
 #include "imagePool.h"
 #include <QImage>
+#include <QDateTime>
 
 static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
     if (!aInput->data().value("qsg").toBool()){
@@ -8,7 +9,7 @@ static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
         return;
     }
 
-    auto pth = "D:/mywork/qsgboardtest/微信图片_20200916112142.png";
+    auto pth = "D:/mywork/qsgboardtest/20201104215458785.png";
     rea::pipeline::add<QJsonObject>([pth](rea::stream<QJsonObject>* aInput){
         QImage img(pth);
         rea::imagePool::cacheImage(pth, img);
@@ -65,7 +66,8 @@ static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
     }, rea::Json("name", "testQSGShow"));
 
     rea::pipeline::add<QJsonObject>([pth](rea::stream<QJsonObject>* aInput){
-        QImage img(pth);
+        QImage img2(pth);
+        auto img = img2.scaled(600, 400);
         auto cfg = rea::Json("width", img.width() ? img.width() : 600,
                              "height", img.height() ? img.height() : 600,
                              "objects", rea::Json(
@@ -73,11 +75,14 @@ static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
                                                          "type", "image",
                                                          "range", rea::JArray(0, 0, img.width(), img.height()),
                                                          "path", pth)));
-        for (int i = 0; i < 2000; ++i){
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 100));
-            rea::imagePool::cacheImage(pth, img);
+        auto tm0 = QDateTime::currentDateTime().toMSecsSinceEpoch();
+        for (int i = 0; i < 1000; ++i){
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 50));
+            //rea::imagePool::cacheImage(pth, img);
+            rea::imagePool::cacheImage(pth, img2.scaled(600, 400));
             rea::pipeline::run<QJsonObject>("updateQSGModel_testbrd", cfg);
         }
+        std::cout << "cost: " << QDateTime::currentDateTime().toMSecsSinceEpoch() - tm0 << std::endl;
     }, rea::Json("name", "testFPS", "thread", 5));
 
     rea::pipeline::add<rea::transaction*>([](rea::stream<rea::transaction*>* aInput){

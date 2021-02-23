@@ -46,6 +46,21 @@ ApplicationWindow {
                 }
             }
             MenuItem{
+                text: "TestQMLStorage2"
+                onClicked: Pipeline.run("writeJson2", "testFS2.json", "testQMLStg2", false, {"testFS2.json": {hello: "world"}})
+                Component.onCompleted: {
+                    Pipeline.find("writeJson2")
+                    .next(function(aInput){
+                        var dt = aInput.varData("testFS2.json", "object")
+                        console.assert(dt["hello"] === "world")
+                        aInput.var("testFS2.json", {hello: "world2"})
+                        dt = aInput.map("testFS2.json").call("readJson2").varData("testFS2.json", "object")
+                        console.assert(dt["hello"] === "world")
+                        aInput.outsB("testFS2.json", "deletePath").outs("Pass: testQMLStorage ", "testSuccess");
+                    }, "testQMLStg2", {vtype: "string"})
+                }
+            }
+            MenuItem{
                 text: "logTransaction"
                 onClicked: Pipeline.run("logTransaction", 0, "", false)
             }
