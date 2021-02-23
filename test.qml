@@ -57,8 +57,27 @@ ApplicationWindow {
                         aInput.var("testFS2.json", {hello: "world2"})
                         dt = aInput.map("testFS2.json").call("readJson2").varData("testFS2.json", "object")
                         console.assert(dt["hello"] === "world")
-                        aInput.outsB("testFS2.json", "deletePath").outs("Pass: testQMLStorage ", "testSuccess");
+                        aInput.outsB("testFS2.json", "deletePath").outs("Pass: testQMLStorage2 ", "testSuccess");
                     }, "testQMLStg2", {vtype: "string"})
+                }
+            }
+            MenuItem{
+                text: "TestQMLStorage3"
+                onClicked: {
+                    Pipeline.input("testFS2.json", "testQMLStg3", false, {"testFS2.json": {hello: "world"}})
+                    .call("writeJson2")
+                    .call(function(aInput){
+                        var dt = aInput.varData("testFS2.json", "object")
+                        console.assert(dt["hello"] === "world")
+                        aInput.var("testFS2.json", {hello: "world2"}).out()
+                    })
+                    .call("readJson2")
+                    .call(function(aInput){
+                        var dt = aInput.varData("testFS2.json", "object")
+                        console.assert(dt["hello"] === "world")
+                        aInput.setData("Pass: testQMLStorage3 ").out()
+                    })
+                    .call("testSuccess")
                 }
             }
             MenuItem{
@@ -74,10 +93,9 @@ ApplicationWindow {
                     }, {vtype: "string"})
                     .call(function(aInput){
                         console.assert(aInput.data() === "world")
-                        aInput.setData("hello").out()
+                        aInput.setData("Pass: test12_").out()
                     })
-                    console.assert(ret.data() === "hello")
-                    Pipeline.run("testSuccess", "Pass: test12_")
+                    .call("testSuccess")
                 }
             }
             MenuItem{

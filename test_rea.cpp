@@ -273,10 +273,9 @@ void test12(){
                    }, rea::Json("thread", 2))
                    ->call<QString>([](rea::stream<QString>* aInput){
                        assert(aInput->data() == "world");
-                       aInput->setData("hello")->out();
-                   });
-    assert(ret->data() == "hello");
-    rea::pipeline::run<QString>("testSuccess", "Pass: test12");
+                       aInput->setData("Pass: test12")->out();
+                   })
+                   ->call("testSuccess");
 }
 
 void testReactive2(){
