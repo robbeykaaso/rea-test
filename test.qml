@@ -27,7 +27,7 @@ ApplicationWindow {
             }
             MenuItem{
                 text: "TestQMLStorage"
-                onClicked: Pipeline.run("writeJson2", "testFS2.json", "testQMLStg", false, {"testFS2.json": {hello: "world"}})
+                onClicked: Pipeline.run("writeJson2", "testFS2.json", "testQMLStg", true, {"testFS2.json": {hello: "world"}})
                 Component.onCompleted: {
                     console.log("hi")
                     Pipeline.find("writeJson2")
@@ -48,23 +48,28 @@ ApplicationWindow {
             }
             MenuItem{
                 text: "TestQMLStorage2"
-                onClicked: Pipeline.run("writeJson2", "testFS2.json", "testQMLStg2", false, {"testFS2.json": {hello: "world"}})
+                onClicked: Pipeline.run("writeJson2", "testFS2.json", "testQMLStg2", true, {"testFS2.json": {hello: "world"}})
+
                 Component.onCompleted: {
                     Pipeline.find("writeJson2")
                     .next(function(aInput){
-                        var dt = aInput.varData("testFS2.json", "object")
-                        console.assert(dt["hello"] === "world")
-                        aInput.var("testFS2.json", {hello: "world2"})
-                        dt = aInput.map("testFS2.json").call("readJson2").varData("testFS2.json", "object")
-                        console.assert(dt["hello"] === "world")
-                        aInput.outsB("testFS2.json", "deletePath").outs("Pass: testQMLStorage2 ", "testSuccess");
+                        var tmp = function(){
+                            var dt = aInput.varData("testFS2.json", "object")
+                            console.assert(dt["hello"] === "world")
+                            aInput.var("testFS2.json", {hello: "world2"})
+                            dt = aInput.map("testFS2.json").call("readJson2").varData("testFS2.json", "object")
+                            console.assert(dt["hello"] === "world")
+                            aInput.outsB("testFS2.json", "deletePath").outs("Pass: testQMLStorage2 ", "testSuccess");
+                        }
+                        tmp()
+                        gc()  //https://stackoverflow.com/questions/27315030/how-to-manage-lifetime-of-dynamically-allocated-qobject-returned-to-qml
                     }, "testQMLStg2", {vtype: "string"})
                 }
             }
             MenuItem{
                 text: "TestQMLStorage3"
                 onClicked: {
-                    Pipeline.input("testFS2.json", "testQMLStg3", false, {"testFS2.json": {hello: "world"}})
+                    Pipeline.input("testFS2.json", "testQMLStg3", true, {"testFS2.json": {hello: "world"}})
                     .call("writeJson2")
                     .call(function(aInput){
                         var dt = aInput.varData("testFS2.json", "object")
@@ -72,18 +77,20 @@ ApplicationWindow {
                         aInput.var("testFS2.json", {hello: "world2"}).out()
                     })
                     .call("readJson2")
+                    .call("deletePath")
                     .call(function(aInput){
                         var dt = aInput.varData("testFS2.json", "object")
                         console.assert(dt["hello"] === "world")
                         aInput.setData("Pass: testQMLStorage3 ").out()
                     })
                     .call("testSuccess")
+                    .destroy()
                 }
             }
             MenuItem{
                 text: "TestQMLStreamProgram"
                 onClicked: {
-                    var ret = Pipeline.input(0)
+                    Pipeline.input(0, "TestQMLStreamProgram")
                     .call(function(aInput){
                         aInput.setData(aInput.data() + 1).out()
                     })
@@ -96,6 +103,7 @@ ApplicationWindow {
                         aInput.setData("Pass: test12_").out()
                     })
                     .call("testSuccess")
+                    .destroy()
                 }
             }
             MenuItem{
@@ -744,6 +752,7 @@ ApplicationWindow {
             }
         }
     }
+
     contentData:
         Column{
             anchors.fill: parent

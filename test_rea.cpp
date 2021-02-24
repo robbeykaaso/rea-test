@@ -263,19 +263,19 @@ void test11(){
 }
 
 void test12(){
-    auto ret = rea::pipeline::input<int>(0)
-                   ->call<int>([](rea::stream<int>* aInput){
-                       aInput->setData(aInput->data() + 1)->out();
-                   }, rea::Json("thread", 1))
-                   ->call<QString>([](rea::stream<int>* aInput){
-                       assert(aInput->data() == 1);
-                       aInput->outs<QString>("world");
-                   }, rea::Json("thread", 2))
-                   ->call<QString>([](rea::stream<QString>* aInput){
-                       assert(aInput->data() == "world");
-                       aInput->setData("Pass: test12")->out();
-                   })
-                   ->call("testSuccess");
+    rea::pipeline::input<int>(0, "test12")
+        ->call<int>([](rea::stream<int>* aInput){
+            aInput->setData(aInput->data() + 1)->out();
+        }, rea::Json("thread", 1))
+        ->call<QString>([](rea::stream<int>* aInput){
+            assert(aInput->data() == 1);
+            aInput->outs<QString>("world");
+        }, rea::Json("thread", 2))
+        ->call<QString>([](rea::stream<QString>* aInput){
+            assert(aInput->data() == "world");
+            aInput->setData("Pass: test12")->out();
+        })
+        ->call("testSuccess");
 }
 
 void testReactive2(){
@@ -295,9 +295,9 @@ void testReactive2(){
 
 static regPip<QJsonObject> test_param([](stream<QJsonObject>* aInput){
     aInput->setData(rea::Json("qml", true,
-                              "rea", true,
-                              "qsg", true,
-                              "stg", true,
+                              "rea", false,
+                              "qsg", false,
+                              "stg", false,
                               "tcp", false,
                               "aop", false,
                               "modbus", false))->out();
@@ -307,10 +307,12 @@ static regPip<QJsonObject> test_rea([](stream<QJsonObject>* aInput){
 
     pipeline::add<QString>([](stream<QString>* aInput){
         std::cout << "Success:" << aInput->data().toStdString() << std::endl;
+        aInput->out();
     }, Json("name", "testSuccess"));
 
     pipeline::add<QString>([](stream<QString>* aInput){
         std::cout << "Fail:" << aInput->data().toStdString() << std::endl;
+        aInput->out();
     }, Json("name", "testFail"));
 
     if (!aInput->data().value("rea").toBool()){
