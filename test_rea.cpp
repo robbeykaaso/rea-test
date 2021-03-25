@@ -278,6 +278,37 @@ void test12(){
         ->call("testSuccess");
 }
 
+class foo{
+public:
+    foo(int aStart){
+        m_start = aStart;
+    }
+    void operator()(rea::stream<int>* aInput) {
+        auto ret = aInput->data() + m_start;
+        aInput->setData(ret)->out();
+    }
+
+    void memberFoo(rea::stream<int>* aInput){
+        auto ret = aInput->data() + m_start;
+        aInput->setData(ret)->out();
+    }
+private:
+    int m_start;
+};
+
+void test13(){
+    auto tmp = foo(6);
+    rea::pipeline::add<int>(foo(2));
+    rea::pipeline::input<int>(3)
+        ->call<int>(foo(2))
+        ->call<int>(std::bind1st(std::mem_fun(&foo::memberFoo), &tmp))
+        ->call<QString>([](rea::stream<int>* aInput){
+            assert(aInput->data() == 11);
+            aInput->outs<QString>("Pass: test13")->out();
+        })
+        ->call("testSuccess");
+}
+
 void testReactive2(){
     test1(); // test anonymous next
     test2(); // test specific next and multithread
@@ -291,13 +322,14 @@ void testReactive2(){
     test10(); // test pipe throttle
     test11(); //test pipe aop
     test12(); //test stream program
+    test13(); //test functor
 }
 
 static regPip<QJsonObject> test_param([](stream<QJsonObject>* aInput){
     aInput->setData(rea::Json("qml", true,
-                              "rea", false,
-                              "qsg", false,
-                              "stg", false,
+                              "rea", true,
+                              "qsg", true,
+                              "stg", true,
                               "tcp", false,
                               "aop", false,
                               "modbus", false))->out();

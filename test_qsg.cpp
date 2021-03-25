@@ -10,9 +10,11 @@ static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
     }
 
     auto pth = "D:/mywork/qsgboardtest/20201104215458785.png";
-    rea::pipeline::add<QJsonObject>([pth](rea::stream<QJsonObject>* aInput){
+    auto pth2 = "D:/mywork/qsgboardtest/微信图片_20200916112142.png";
+    rea::pipeline::add<QJsonObject>([pth, pth2](rea::stream<QJsonObject>* aInput){
         QImage img(pth);
         rea::imagePool::cacheImage(pth, img);
+        rea::imagePool::cacheImage(pth2, QImage(pth2));
         auto cfg = rea::Json("width", img.width() ? img.width() : 600,
                              "height", img.height() ? img.height() : 600,
                              "arrow", rea::Json("visible", false,
@@ -33,6 +35,16 @@ static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
                                                                           //                   "size", rea::JArray(100, 50),
                                                                           //                   "location", "cornerLT")
                                                                                                                       ),
+                                            "img_3", rea::Json(
+                                                         "type", "image",
+                                                         "range", rea::JArray(img.width(), 0, 2 * img.width(), img.height()),
+                                                         "path", pth2,
+                                                         "caption", "Text",
+                                                         "color", "green"//,
+                                                         // "text", rea::Json("visible", true,
+                                                         //                   "size", rea::JArray(100, 50),
+                                                         //                   "location", "cornerLT")
+                                                         ),
                                             "shp_0", rea::Json(
                                                          "type", "poly",
                                                          "points", rea::JArray(QJsonArray(),
