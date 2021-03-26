@@ -1,5 +1,7 @@
 #include "inspector.h"
 #include "ui_inspector.h"
+#include "mainwindow.h"
+#include "reaC++.h"
 
 Inspector::Inspector(QWidget *parent) :
                                         QDialog(parent),
@@ -24,3 +26,11 @@ Inspector::~Inspector()
 {
     delete ui;
 }
+
+static rea::regPip<QQmlApplicationEngine*> reg_web([](rea::stream<QQmlApplicationEngine*>* aInput){
+    static MainWindow wd;
+    rea::pipeline::add<double>([](rea::stream<double>* aInput){
+        wd.show();
+    }, rea::Json("name", "openWebWindow"));
+    aInput->out();
+}, QJsonObject(), "install0_QML");

@@ -3,9 +3,9 @@
         <file>test.qml</file>
         <file>qtquickcontrols2.conf</file>
         <file>test2.qml</file>
-        <file>test.html</file>
-        <file>qwebchannel.js</file>
-        <file>rea.js</file>
-        <file>msgutils.js</file>
+        <file>html/msgutils.js</file>
+        <file>html/qwebchannel.js</file>
+        <file>html/rea.js</file>
+        <file>html/test.html</file>
     </qresource>
 </RCC>

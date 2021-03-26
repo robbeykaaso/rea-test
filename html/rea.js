@@ -1,3 +1,39 @@
+var context;
+var Pipeline;
+// 初始化
+
+function init()
+{
+}
+    if (typeof qt != 'undefined')
+    {
+        new QWebChannel(qt.webChannelTransport, function(channel){
+            context = channel.objects.context;
+            Pipeline = channel.objects.Pipeline;
+            Pipeline.postStream.connect(function(aName, aStream){
+                let src = pips[aName]
+                if (src)
+                  src.execute(new stream(aStream.data), {})
+            })
+            add(function(aInput){
+                console.log(aInput.data)
+                aInput.out()
+            }, {name: "testJS"})
+            .next("testJS2")
+            /*Pipeline.trig.connect(function(aInput){
+                for (var i in aInput)
+                    console.log(i + ";" + aInput[i])
+                Pipeline.trigged(function(){
+                    console.log(i + ";" + aInput[i])
+                })
+            })*/
+        });
+    }
+    else
+    {
+        alert("qt对象获取失败！");
+    }
+
 //https://blog.csdn.net/qq_39425958/article/details/87642137
 const wxuuid = function () {
   var s = [];
@@ -76,7 +112,7 @@ class pipe{
     if (aInput.outs != null)
       if (aInput.outs.length == 0)
         for (let i in aNexts){
-          let pip = pips[i]
+          let pip = find(i)
           if (pip)
             pip.execute(aInput, aInput.param | aNexts[i])
         }
@@ -161,6 +197,9 @@ class pipeFuture extends pipe{
   }
   removeNext(aName){
     console.assert(0)
+  }
+  execute(aInput, aParam){
+    console.log(aInput.data)
   }
 }
 
@@ -260,6 +299,8 @@ let add = (aFunc, aPipeParam) => {
   }
   else
     pip = new pipe("", aFunc)
+  if (Pipeline)
+    Pipeline.pipeAdded(pip.name, "string")
   pips[pip.name] = pip
   if (!pip.anonymous)
     run(pip.name + "_pipe_add")
@@ -364,7 +405,7 @@ add(function(){
    run("test6", "hello", {tag: "test6__"})
 }, {name: "unitTest"})
 
-module.exports = {
+/*module.exports = {
   find,
   add,
   run,
@@ -372,4 +413,4 @@ module.exports = {
   local,
   pipe,
   stream
-}
+}*/

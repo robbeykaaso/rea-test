@@ -43,6 +43,8 @@ add_library(REA_TEST SHARED
     "inspector.h"
     "inspector.cpp"
     "inspector.ui"
+    "rea.h"
+    "rea.cpp"
     "reaJS.h"
     "reaJS.cpp"
     )
@@ -65,4 +67,10 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_CURRENT_LIST_DIR}/test.qml"
     "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/.."
+    COMMENT "copying resource.")
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/html"
+    "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/../html"
     COMMENT "copying resource.")
