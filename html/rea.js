@@ -10,7 +10,7 @@ function init()
         new QWebChannel(qt.webChannelTransport, function(channel){
             context = channel.objects.context;
             Pipeline = channel.objects.Pipeline;
-            Pipeline.postStream.connect(function(aName, aStream){
+            Pipeline.executeJSPipe.connect(function(aName, aStream){
                 let src = pips[aName]
                 if (src)
                   src.execute(new stream(aStream.data), {})

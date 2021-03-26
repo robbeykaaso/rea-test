@@ -246,9 +246,14 @@ void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, b
         pip->execute(aStream);
 }
 
-void pipeFuture::execute(std::shared_ptr<stream0> aStream){
+void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream){
     for (auto i : pipelines)
-        i->execute(actName(), aStream, false);
+        if (i != this)
+            i->execute(aName, aStream, false);
+}
+
+void pipeFuture::execute(std::shared_ptr<stream0> aStream){
+    pipeline::instance()->tryExecutePipeOutside(actName(), aStream);
 }
 
 pipeFuture::pipeFuture(const QString& aName) : pipe0 (){

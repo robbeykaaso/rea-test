@@ -286,7 +286,9 @@ public:
         return std::make_shared<stream<T>>(aInput, tag, aScopeCache, rt);
     }
     void tryStartTransaction(std::shared_ptr<transaction> aTransaction);
+protected:
     virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, bool aNeedFuture = true);
+    void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream);
 private:
     QThread* findThread(int aNo);
     QHash<QString, pipe0*> m_pipes;
