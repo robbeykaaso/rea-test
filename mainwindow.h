@@ -42,6 +42,7 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 private:
+    void unitTest();
     JsContext* m_jsContext;
     QWebChannel* m_webChannel;
     Ui::MainWindow *ui;

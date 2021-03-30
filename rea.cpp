@@ -172,6 +172,17 @@ pipe0* pipe0::nextB(const QString& aName, const QString& aTag){
     return this;
 }
 
+void pipe0::tryExecutePipe(const QString& aName, std::shared_ptr<stream0> aStream){
+    auto pip = pipeline::find(aName);
+    if (pip){
+        aStream->addTrig(actName(), pip->actName());
+        if (pip->m_external)
+            pipeline::instance()->tryExecutePipeOutside(pip->actName(), aStream);
+        else
+            pip->execute(aStream);
+    }
+}
+
 void pipe0::doNextEvent(const QMap<QString, QString>& aNexts, std::shared_ptr<stream0> aStream){
     auto outs = aStream->m_outs;
     aStream->m_outs = nullptr;
@@ -179,28 +190,13 @@ void pipe0::doNextEvent(const QMap<QString, QString>& aNexts, std::shared_ptr<st
         if (outs->size() > 0){
             for (auto i : *outs)
                 if (i.first == ""){
-                    for (auto j : aNexts.keys()){
-                        auto pip = pipeline::find(j, false);
-                        if (pip){
-                            aStream->addTrig(actName(), pip->actName());
-                            pip->execute(i.second);
-                        }
-                    }
-                }else{
-                    auto pip = pipeline::find(i.first, false);
-                    if (pip){
-                        aStream->addTrig(actName(), pip->actName());
-                        pip->execute(i.second);
-                    }
-                }
+                    for (auto j : aNexts.keys())
+                        tryExecutePipe(j, aStream);
+                }else
+                    tryExecutePipe(i.first, i.second);
         }else
-            for (auto i : aNexts.keys()){
-                auto pip = pipeline::find(i, false);
-                if (pip){
-                    aStream->addTrig(actName(), pip->actName());
-                    pip->execute(aStream);
-                }
-            }
+            for (auto i : aNexts.keys())
+                tryExecutePipe(i, aStream);
     }
 }
 
@@ -234,26 +230,56 @@ protected:
     }
 private:
     QVector<QPair<QString, QString>> m_next2;
-    QHash<QString, QJsonObject> m_locals;
     friend pipeFuture;
 };
 
 static QHash<QString, pipeline*> pipelines;
 
-void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, bool aNeedFuture){
+void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, bool aNeedFuture, const QJsonObject& aSync){
     auto pip = find(aName, aNeedFuture);
-    if (pip)
+    if (pip){
+        if (!aNeedFuture && !pip->m_external)
+            return;
+        if (!aSync.empty()){
+            auto nxts = aSync.value("next").toArray();
+            for (auto i : nxts){
+                auto nxt = i.toArray();
+                pip->insertNext(nxt[0].toString(), nxt[1].toString());
+            }
+            pip->setAspect(pip->m_before, aSync.value("before").toString());
+            pip->setAspect(pip->m_after, aSync.value("after").toString());
+            pip->setAspect(pip->m_around, aSync.value("around").toString());
+        }
         pip->execute(aStream);
+    }
 }
 
-void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream){
+void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync){
     for (auto i : pipelines)
         if (i != this)
-            i->execute(aName, aStream, false);
+            i->execute(aName, aStream, false, aSync);
 }
 
 void pipeFuture::execute(std::shared_ptr<stream0> aStream){
-    pipeline::instance()->tryExecutePipeOutside(actName(), aStream);
+    QJsonObject sync;
+    QJsonArray nxts;
+    for (auto i : m_next2)
+        nxts.push_back(rea::JArray(i.first, i.second));
+    if (nxts.size() > 0)
+        sync.insert("next", nxts);
+    if (m_before != "")
+        sync.insert("before", m_before);
+    if (m_around != "")
+        sync.insert("around", m_around);
+    if (m_after != "")
+        sync.insert("after", m_after);
+    pipeline::instance()->tryExecutePipeOutside(actName(), aStream, sync);
+}
+
+void pipeFuture::removeNext(const QString& aName){
+    for (auto i = m_next2.size() - 1; i != 0; --i)
+        if (m_next2[i].first == aName)
+            m_next2.remove(i);
 }
 
 pipeFuture::pipeFuture(const QString& aName) : pipe0 (){
@@ -264,6 +290,7 @@ pipeFuture::pipeFuture(const QString& aName) : pipe0 (){
         pipeline::call<int>(aName + "_pipe_add", 0);
         for (auto i : pip->m_next2)
             insertNext(i.first, i.second);
+        m_external = pip->m_external;
         setAspect(m_before, pip->m_before);
         setAspect(m_around, pip->m_around);
         setAspect(m_after, pip->m_after);
@@ -273,6 +300,7 @@ pipeFuture::pipeFuture(const QString& aName) : pipe0 (){
         auto this_event = pipeline::find(aName, false);
         for (auto i : m_next2)
             this_event->insertNext(i.first, i.second);
+        this_event->m_external = m_external;
         setAspect(this_event->m_before, m_before);
         setAspect(this_event->m_around, m_around);
         setAspect(this_event->m_after, m_after);
@@ -333,6 +361,13 @@ pipeline::~pipeline(){
     for (auto i : m_pipes.values())
         delete i;
     m_pipes.clear();
+}
+
+void externalAdded(const QString& aName, const QString& aType){
+    auto kys = pipelines.keys();
+    for (auto i : kys)
+        if (i != "")
+            pipelines.value(i)->pipeAdded(aName, aType);
 }
 
 }

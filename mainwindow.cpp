@@ -50,13 +50,26 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     m_webView->page()->setWebChannel(m_webChannel);
     connect(m_jsContext, &JsContext::recvdMsg, this, [this](const QString& msg) {
         //rea::pipelineJS::instance()->trig(rea::Json("hello", "world"));
-        rea4::pipeline::run<QString>("testJS", "hello");
+        //rea4::pipeline::run<QString>("testJS", "hello");
         auto sw = "Received message: " + msg;
         ui->statusBar->showMessage(sw);
     });
     m_webView->setUrl(QUrl("file:/html/test.html"));
 
 
+    unitTest();
+}
+
+void MainWindow::unitTest(){
+    rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+        assert(aInput->data() == 4);
+        aInput->setData(aInput->data() + 1)->out();
+    }, rea::Json("name", "test4_", "external", true));
+
+    rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+        assert(aInput->data() == 5);
+        aInput->setData(aInput->data() + 1)->out();
+    }, rea::Json("name", "test4__", "external", true));
 }
 
 MainWindow::~MainWindow()

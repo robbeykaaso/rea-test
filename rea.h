@@ -169,11 +169,12 @@ protected:
     QString m_name;
     QMap<QString, QString> m_next;
     QString m_before = "", m_around = "", m_after = "";
+    bool m_external = false;
     std::shared_ptr<stream0> m_stream_cache = nullptr;
     QThread* m_thread = QThread::currentThread();
 private:
     friend pipeFuture;
-
+    void tryExecutePipe(const QString& aName, std::shared_ptr<stream0> aStream);
     template<typename>
     friend class pipeDelegate;
 };
@@ -182,6 +183,7 @@ class pipeFuture : public pipe0 {
 public:
     QString actName() override {return m_act_name;}
     void execute(std::shared_ptr<stream0> aStream) override;
+    void removeNext(const QString& aName) override;
 protected:
     pipeFuture(const QString& aName);
     void insertNext(const QString& aName, const QString& aTag) override;
@@ -245,22 +247,21 @@ public:
         auto rt = aTransaction ? std::make_shared<transaction>(aName, aTag) : nullptr;
         instance()->tryStartTransaction(rt);
         auto stm = std::make_shared<stream<T>>(aInput, aTag, aScopeCache, rt);
-        instance()->execute(aName, stm);
+        instance()->execute(aName, stm, true);
         ret = !stm->failed();
         return ret;
     }
 
     template<typename T>
     static void runC(const QString& aName, T aInput, const QString& aStreamID, const QString& aTag = ""){
-        auto pip = instance()->m_pipes.value(aName);
-        if (pip){
-            auto stm = instance()->m_stream_cache.value(aStreamID);
-            if (stm){
-                instance()->m_stream_cache.remove(aStreamID);
-                pip->execute(std::make_shared<stream<T>>(aInput, aTag == "" ? stm->tag() : aTag, stm->m_cache, stm->m_transaction));
-            }else
-                pip->execute(std::make_shared<stream<T>>(aInput, aTag, nullptr, nullptr));
-        }
+        std::shared_ptr<stream<T>> act_stm;
+        auto stm = instance()->m_stream_cache.value(aStreamID);
+        if (stm){
+            instance()->m_stream_cache.remove(aStreamID);
+            act_stm = std::make_shared<stream<T>>(aInput, aTag == "" ? stm->tag() : aTag, stm->m_cache, stm->m_transaction);
+        }else
+            act_stm = std::make_shared<stream<T>>(aInput, aTag, nullptr, nullptr);
+        instance()->execute(aName, act_stm, true);
     }
 
     template<typename T>
@@ -286,9 +287,12 @@ public:
         return std::make_shared<stream<T>>(aInput, tag, aScopeCache, rt);
     }
     void tryStartTransaction(std::shared_ptr<transaction> aTransaction);
+    virtual void pipeAdded(const QString& aName, const QString& aType){
+
+    }
 protected:
-    virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, bool aNeedFuture = true);
-    void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream);
+    virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, bool aNeedFuture, const QJsonObject& aSync = QJsonObject());
+    void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject());
 private:
     QThread* findThread(int aNo);
     QHash<QString, pipe0*> m_pipes;
@@ -300,6 +304,8 @@ private:
     friend stream0;
     template<typename T>
     friend class pipe;
+    template<typename T>
+    friend class stream;
 };
 
 template <typename T>
@@ -387,24 +393,21 @@ public:
 
     template<typename S = T>
     std::shared_ptr<stream<S>> asyncCall(const QString& aName){
-        auto pip = pipeline::find(aName, false);
         std::shared_ptr<stream<S>> ret = nullptr;
-        if (pip){
-            QEventLoop loop;
-            bool timeout = false;
-            auto monitor = pipeline::find(aName)->next<S>([&loop, &timeout, &ret, this](stream<S>* aInput){
-                ret = map<S>(aInput->data());
-                if (loop.isRunning()){
-                    loop.quit();
-                }else
-                    timeout = true;
-            }, m_tag);
-            pip->execute(shared_from_this());
-            if (!timeout)
-                loop.exec();
-            pipeline::find(aName)->removeNext(monitor->actName());
-            pipeline::remove(monitor->actName());
-        }
+        QEventLoop loop;
+        bool timeout = false;
+        auto monitor = pipeline::find(aName)->next<S>([&loop, &timeout, &ret, this](stream<S>* aInput){
+            ret = map<S>(aInput->data());
+            if (loop.isRunning()){
+                loop.quit();
+            }else
+                timeout = true;
+        }, m_tag);
+        pipeline::instance()->execute(aName, shared_from_this(), true);
+        if (!timeout)
+            loop.exec();
+        pipeline::find(aName)->removeNext(monitor->actName());
+        pipeline::remove(monitor->actName());
         return ret; //std::dynamic_pointer_cast<stream<T>>(shared_from_this());
     }
 
@@ -427,11 +430,64 @@ pipe0* nextF0(pipe0* aPipe, pipeFunc<T> aNextFunc, const QString& aTag, const QJ
 }
 
 template <typename T>
+class typeTrait{
+public:
+    static QString name(){
+        return "";
+    }
+};
+
+template <>
+class typeTrait<double>{
+public:
+    static QString name(){
+        return "number";
+    }
+};
+
+template <>
+class typeTrait<QString>{
+public:
+    static QString name(){
+        return "string";
+    }
+};
+
+template <>
+class typeTrait<QJsonObject>{
+public:
+    static QString name(){
+        return "object";
+    }
+};
+
+template <>
+class typeTrait<bool>{
+public:
+    static QString name(){
+        return "bool";
+    }
+};
+
+template <>
+class typeTrait<QJsonArray>{
+public:
+    static QString name(){
+        return "array";
+    }
+};
+
+void externalAdded(const QString& aName, const QString& aType);
+
+template <typename T>
 class pipe : public pipe0{
 protected:
     pipe(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe0(aName, aThreadNo, aReplace) {}
     virtual pipe0* initialize(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()){
         m_func = aFunc;
+        m_external = aParam.value("external").toBool();
+        if (m_external)
+            externalAdded(actName(), typeTrait<T>::name());
         auto bf = aParam.value("befored").toString();
         if (bf != "")
             setAspect(m_before, bf);
