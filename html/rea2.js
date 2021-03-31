@@ -115,8 +115,8 @@ if (typeof qt != "undefined"){
     new QWebChannel(qt.webChannelTransport, function(channel){
         context = channel.objects.context;
         PipelineJS = channel.objects.Pipeline;
-        PipelineJS.executeJSPipe.connect(function(aName, aStream){
-            pipelines().find(aName).execute(new stream(aStream.data, aStream.tag))
+        PipelineJS.executeJSPipe.connect(function(aName, aStream, aSync){
+            pipelines().execute(aName, new stream(aStream.data, aStream.tag), true, aSync)
         })
     })
 }else
@@ -131,6 +131,7 @@ class stream {
     }
     setData(aData){
         this.m_data = aData
+        return this
     }
     data(){
         return this.m_data
@@ -160,6 +161,10 @@ class pipe {
         pipelines().m_pipes[this.m_name] = this
     }
     
+    resetTopo(){
+        this.m_next = {}
+    }
+
     actName() {
         return this.m_name
     }
@@ -200,6 +205,15 @@ class pipe {
         this.m_func(aStream)
     }
 
+    tryExecutePipe(aName, aStream){
+        const pip = pipelines().find(aName)
+        if (pip)
+            if (pip.m_external)
+                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data()}, {})
+            else
+                pip.execute(aStream)
+    }
+
     doNextEvent(aNexts, aStream){
         const outs = aStream.m_outs
         aStream.m_outs = null
@@ -208,13 +222,13 @@ class pipe {
                 for (let i in outs){
                     if (outs[i][0] == "")
                         for (let j in aNexts)
-                            pipelines().find(j).execute(outs[i][1])
+                            this.tryExecutePipe(j, outs[i][1])
                     else
-                        pipelines().find(outs[i][0]).execute(outs[i][1])
+                        this.tryExecutePipe(outs[i][0], outs[i][1])
                 }
             }else
                 for (let i in aNexts)
-                    pipelines().find(i).execute(aStream)
+                    this.tryExecutePipe(i, aStream)
     }
 }
 
@@ -254,14 +268,19 @@ class pipeFuture extends pipe{
         }, {name: aName + "_pipe_add"})
     }
 
+    resetTopo(){
+        this.m_next2 = []
+    }
+
     actName(){
         return this.m_act_name
     }
 
     removeNext(aName){
-        for (let i = this.m_next2.length - 1; i != 0; --i)
+        for (let i = this.m_next2.length - 1; i >= 0; --i){
             if (this.m_next2[i][0] == aName)
                 delete this.m_next2[i]
+        }
     }
 
     insertNext(aName, aTag){
@@ -330,8 +349,12 @@ class pipeline{
     execute(aName, aStream, aNeedFuture, aSync){
         const pip = this.find(aName, aNeedFuture)
         if (pip){
-            if (!aNeedFuture && !pip.m_external)
-                return
+            if (!aNeedFuture){
+                if (!pip.m_external)
+                    return
+                pip.resetTopo()
+            }
+            
             if (aSync)
                 if (aSync["next"])
                     for (let i in aSync["next"])

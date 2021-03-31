@@ -8,5 +8,6 @@
         <file>html/rea.js</file>
         <file>html/test.html</file>
         <file>html/rea2.js</file>
+        <file>html/bundle.js</file>
     </qresource>
 </RCC>

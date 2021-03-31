@@ -9,7 +9,7 @@ if (aCache)
 else
     m_cache = std::make_shared<QHash<QString, std::shared_ptr<stream0>>>();
 m_transaction = aTransaction;*/
-void pipelineJS::execute(const QString& aName, std::shared_ptr<rea4::stream0> aStream, bool aNeedFuture, const QJsonObject& aSync){
+void pipelineJS::execute(const QString& aName, std::shared_ptr<rea4::stream0> aStream, const QJsonObject& aSync){
     if (m_data_type.value(aName) == "object")
         executeJSPipe(aName,  rea::Json("data", std::dynamic_pointer_cast<rea4::stream<QJsonObject>>(aStream)->data(),
                                         "tag", aStream->tag()), aSync);
@@ -25,8 +25,9 @@ void pipelineJS::execute(const QString& aName, std::shared_ptr<rea4::stream0> aS
     }else if (m_data_type.value(aName) == "number"){
         executeJSPipe(aName,  rea::Json("data", std::dynamic_pointer_cast<rea4::stream<double>>(aStream)->data(),
                                         "tag", aStream->tag()), aSync);
-    }else
-        assert(0);
+    }else{
+        //assert(0);
+    }
     auto stm = aStream;
 }
 

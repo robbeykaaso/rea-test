@@ -124,6 +124,13 @@ pipe0::pipe0(const QString& aName, int aThreadNo, bool aReplace){
     pipeline::instance()->m_pipes.insert(m_name, this);
 }
 
+void pipe0::resetTopo(){
+    m_next.clear();
+    m_before = "";
+    m_around = "";
+    m_after = "";
+}
+
 pipe0* pipe0::next(pipe0* aNext, const QString& aTag){
     auto tags = aTag.split(";");
     for (auto i : tags)
@@ -216,6 +223,10 @@ void pipe0::execute(std::shared_ptr<stream0> aStream){
     }
 }
 
+void pipeFuture::resetTopo(){
+    m_next2.clear();
+}
+
 void pipeFuture::insertNext(const QString& aName, const QString& aTag){
     m_next2.push_back(QPair<QString, QString>(aName, aTag));
 }
@@ -235,12 +246,11 @@ private:
 
 static QHash<QString, pipeline*> pipelines;
 
-void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, bool aNeedFuture, const QJsonObject& aSync){
-    auto pip = find(aName, aNeedFuture);
+void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync){
+    auto pip = find(aName);
     if (pip){
-        if (!aNeedFuture && !pip->m_external)
-            return;
         if (!aSync.empty()){
+            pip->resetTopo();
             auto nxts = aSync.value("next").toArray();
             for (auto i : nxts){
                 auto nxt = i.toArray();
@@ -257,7 +267,7 @@ void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, b
 void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync){
     for (auto i : pipelines)
         if (i != this)
-            i->execute(aName, aStream, false, aSync);
+            i->execute(aName, aStream, aSync);
 }
 
 void pipeFuture::execute(std::shared_ptr<stream0> aStream){
@@ -277,7 +287,7 @@ void pipeFuture::execute(std::shared_ptr<stream0> aStream){
 }
 
 void pipeFuture::removeNext(const QString& aName){
-    for (auto i = m_next2.size() - 1; i != 0; --i)
+    for (auto i = m_next2.size() - 1; i >= 0; --i)
         if (m_next2[i].first == aName)
             m_next2.remove(i);
 }

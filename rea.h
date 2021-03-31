@@ -162,6 +162,7 @@ protected:
     virtual void insertNext(const QString& aName, const QString& aTag) {
         m_next.insert(aName, aTag);
     }
+    virtual void resetTopo();
 protected:
     void doNextEvent(const QMap<QString, QString>& aNexts, std::shared_ptr<stream0> aStream);
     void setAspect(QString& aTarget, const QString& aAspect);
@@ -186,6 +187,7 @@ public:
     void removeNext(const QString& aName) override;
 protected:
     pipeFuture(const QString& aName);
+    void resetTopo() override;
     void insertNext(const QString& aName, const QString& aTag) override;
 private:
     QString m_act_name;
@@ -247,7 +249,7 @@ public:
         auto rt = aTransaction ? std::make_shared<transaction>(aName, aTag) : nullptr;
         instance()->tryStartTransaction(rt);
         auto stm = std::make_shared<stream<T>>(aInput, aTag, aScopeCache, rt);
-        instance()->execute(aName, stm, true);
+        instance()->execute(aName, stm);
         ret = !stm->failed();
         return ret;
     }
@@ -291,7 +293,7 @@ public:
 
     }
 protected:
-    virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, bool aNeedFuture, const QJsonObject& aSync = QJsonObject());
+    virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject());
     void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject());
 private:
     QThread* findThread(int aNo);
