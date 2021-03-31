@@ -136,6 +136,9 @@ class stream {
     data(){
         return this.m_data
     }
+    tag(){
+        return this.m_tag
+    }
     out(aTag = ""){
         if (!this.m_outs)
             this.m_outs = []
@@ -361,5 +364,56 @@ class pipeline{
                         pip.insertNext(aSync["next"][i][0], aSync["next"][i][1])
             pip.execute(aStream)    
         }
+    }
+}
+
+class pipePartial extends pipe{
+    constructor(aName){
+        super(aName)
+        this.m_next2 = {}
+    }
+
+    insertNext(aName, aTag){
+        if (!this.m_next2[aTag])
+            this.m_next2[aTag] = {}
+        this.m_next2[aTag][aName] = aTag
+    }
+
+    removeNext(aName){
+        for (let i in this.m_next2)
+            delete this.m_next2[i][aName]
+    }
+
+    execute(aStream){
+        this.doEvent(aStream)
+        this.doNextEvent(this.m_next2[aStream.tag()], aStream)
+    }
+}
+
+class pipeDelegate extends pipe{
+
+    constructor(aName){
+        super(aName)
+        this.m_next2 = []
+    }
+
+    next(aNext, aTag = ""){
+        pipelines().find(this.m_delegate).next(aNext, aTag)
+    }
+    removeNext(aName){
+        pipelines().find(this.m_delegate).removeNext(aName)
+    }
+    insertNext(aName, aTag){
+        this.m_next2.push([aName, aTag])
+    }
+    execute(aStream){
+        this.doEvent(aStream)
+    }
+    initialize(aFunc, aParam){
+        this.m_delegate = aParam["delegate"]
+        const del = pipelines().find(this.m_delegate)
+        for (let i in this.m_next2)
+            del.insertNext(this.m_next2[i][0], this.m_next2[i][1])
+        super(aFunc, aParam)
     }
 }
