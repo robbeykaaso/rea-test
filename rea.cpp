@@ -132,6 +132,7 @@ void pipe0::resetTopo(){
 }
 
 pipe0* pipe0::next(pipe0* aNext, const QString& aTag){
+    assert(!this->m_external);
     auto tags = aTag.split(";");
     for (auto i : tags)
         insertNext(aNext->actName(), i);
@@ -139,6 +140,7 @@ pipe0* pipe0::next(pipe0* aNext, const QString& aTag){
 }
 
 pipe0* pipe0::next(const QString& aName, const QString& aTag){
+    assert(!this->m_external);
     auto tags = aTag.split(";");
     for (auto i : tags)
         insertNext(aName, i);
@@ -147,10 +149,12 @@ pipe0* pipe0::next(const QString& aName, const QString& aTag){
 }
 
 void pipe0::removeNext(const QString &aName){
+    assert(!this->m_external);
     m_next.remove(aName);
 }
 
 void pipe0::removeAspect(pipe0::AspectType aType, const QString& aAspect){
+    assert(!this->m_external);
     QString* tar = nullptr;
     if (aType == pipe0::AspectType::AspectAfter)
         tar = &m_after;

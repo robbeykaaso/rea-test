@@ -10,32 +10,25 @@ else
     m_cache = std::make_shared<QHash<QString, std::shared_ptr<stream0>>>();
 m_transaction = aTransaction;*/
 void pipelineJS::execute(const QString& aName, std::shared_ptr<rea4::stream0> aStream, const QJsonObject& aSync){
-    if (m_data_type.value(aName) == "object")
+    auto tp = aStream->dataType();
+    if (tp == "object")
         executeJSPipe(aName,  rea::Json("data", std::dynamic_pointer_cast<rea4::stream<QJsonObject>>(aStream)->data(),
                                         "tag", aStream->tag()), aSync);
-    else if (m_data_type.value(aName) == "array")
+    else if (tp == "array")
         executeJSPipe(aName,  rea::Json("data", std::dynamic_pointer_cast<rea4::stream<QJsonArray>>(aStream)->data(),
                                         "tag", aStream->tag()), aSync);
-    else if (m_data_type.value(aName) == "string")
+    else if (tp == "string")
         executeJSPipe(aName,  rea::Json("data", std::dynamic_pointer_cast<rea4::stream<QString>>(aStream)->data(),
                                         "tag", aStream->tag()), aSync);
-    else if (m_data_type.value(aName) == "bool"){
+    else if (tp == "bool"){
         executeJSPipe(aName,  rea::Json("data", std::dynamic_pointer_cast<rea4::stream<bool>>(aStream)->data(),
                                         "tag", aStream->tag()), aSync);
-    }else if (m_data_type.value(aName) == "number"){
+    }else if (tp == "number"){
         executeJSPipe(aName,  rea::Json("data", std::dynamic_pointer_cast<rea4::stream<double>>(aStream)->data(),
                                         "tag", aStream->tag()), aSync);
     }else{
         //assert(0);
     }
-    auto stm = aStream;
-}
-
-void pipelineJS::pipeAdded(const QString& aName, const QString& aType){
-    if (aType == "")
-        m_data_type.remove(aName);
-    else
-        m_data_type.insert(aName, aType);
 }
 
 void pipelineJS::tryExecuteOutsidePipe(const QString& aName, const QJsonObject& aStream, const QJsonObject& aSync){

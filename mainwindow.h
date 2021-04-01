@@ -23,7 +23,7 @@ public:
     explicit JsContext(QObject *parent = nullptr);
 
 signals:
-    void recvdMsg(const QString& msg);
+    void recvdMsg(const QJsonObject& msg);
 
 public:
     // 向页面发送消息
@@ -31,7 +31,7 @@ public:
 
 public slots:
     // 接收到页面发送来的消息
-    void onMsg(const QString& msg);
+    void onMsg(const QJsonValue& msg);
 };
 
 class MainWindow : public QMainWindow

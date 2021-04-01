@@ -94,12 +94,14 @@ public:
         return m_tag;
     }
     QString cache(const QString& aID = "");
+    QString dataType(){return m_data_type;}
 protected:
     void addTrig(const QString& aStart, const QString& aNext){
         if (m_transaction)
             m_transaction->addTrig(aStart, aNext);
     }
     void executed(const QString& aPipe);
+    QString m_data_type;
     QString m_tag;
     std::shared_ptr<QHash<QString, std::shared_ptr<stream0>>> m_cache;
     std::shared_ptr<std::vector<std::pair<QString, std::shared_ptr<stream0>>>> m_outs = nullptr;
@@ -311,11 +313,61 @@ private:
 };
 
 template <typename T>
+class typeTrait{
+public:
+    static QString name(){
+        return "";
+    }
+};
+
+template <>
+class typeTrait<double>{
+public:
+    static QString name(){
+        return "number";
+    }
+};
+
+template <>
+class typeTrait<QString>{
+public:
+    static QString name(){
+        return "string";
+    }
+};
+
+template <>
+class typeTrait<QJsonObject>{
+public:
+    static QString name(){
+        return "object";
+    }
+};
+
+template <>
+class typeTrait<bool>{
+public:
+    static QString name(){
+        return "bool";
+    }
+};
+
+template <>
+class typeTrait<QJsonArray>{
+public:
+    static QString name(){
+        return "array";
+    }
+};
+
+
+template <typename T>
 class stream : public stream0{
 public:
     stream() : stream0(){}
     stream(T aInput, const QString& aTag = "", std::shared_ptr<QHash<QString, std::shared_ptr<stream0>>> aCache = nullptr, std::shared_ptr<transaction> aTransaction = nullptr) : stream0(aTag){
         m_data = aInput;
+        m_data_type = typeTrait<T>::name();
         if (aCache)
             m_cache = aCache;
         else
@@ -430,54 +482,6 @@ template <typename T>
 pipe0* nextF0(pipe0* aPipe, pipeFunc<T> aNextFunc, const QString& aTag, const QJsonObject& aParam){
     return aPipe->next(pipeline::add<T>(aNextFunc, aParam), aTag);
 }
-
-template <typename T>
-class typeTrait{
-public:
-    static QString name(){
-        return "";
-    }
-};
-
-template <>
-class typeTrait<double>{
-public:
-    static QString name(){
-        return "number";
-    }
-};
-
-template <>
-class typeTrait<QString>{
-public:
-    static QString name(){
-        return "string";
-    }
-};
-
-template <>
-class typeTrait<QJsonObject>{
-public:
-    static QString name(){
-        return "object";
-    }
-};
-
-template <>
-class typeTrait<bool>{
-public:
-    static QString name(){
-        return "bool";
-    }
-};
-
-template <>
-class typeTrait<QJsonArray>{
-public:
-    static QString name(){
-        return "array";
-    }
-};
 
 void externalAdded(const QString& aName, const QString& aType);
 
@@ -629,7 +633,7 @@ protected:
 
     }
     void insertNext(const QString& aName, const QString& aTag) override {
-        tryFind(&m_next2, aTag)->insert(aName, aTag);
+        rea::tryFind(&m_next2, aTag)->insert(aName, aTag);
     }
     bool event( QEvent* e) override{
         if(e->type()== pipe0::streamEvent::type){

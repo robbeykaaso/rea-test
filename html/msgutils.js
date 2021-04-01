@@ -10,13 +10,6 @@ function sendMessage(msg)
         context.onMsg(msg);
     }
 }
-// 控件控制函数
-function onBtnSendMsg()
-{
-    pipelines().run("unitTest")
-    var cmd = document.getElementById("待发送消息").value;
-    sendMessage(cmd);
-}
 
 function recvMessage(msg)
 {
@@ -97,7 +90,7 @@ function test4(){
     .nextF(function(aInput){  //test4__next
         console.assert(aInput.data() == 6)
         aInput.outs("Pass: test4", "testSuccessJS")
-    }, "", {name: "test_4", external: true, vtype: "number"})
+    }, "", {name: "test_4"})
 
     pipelines().run("test4", 4)
 }
@@ -110,7 +103,7 @@ function test5(){
     .nextF(function(aInput){
         console.assert(aInput.data() == "world")
         aInput.outs("Pass: test5", "testSuccessJS")
-    }, "", {name: "test_5", external: true, vtype: "string"})
+    }, "", {name: "test_5"})
 
     pipelines().run("test5", "hello")
 }
@@ -119,26 +112,32 @@ function test6(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 4)
         aInput.setData(aInput.data() + 1).out()
-    }, {name: "test6_", external: true, vtype: "number"})
+    }, {name: "test6_", external: true})
 
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 5)
         aInput.setData(aInput.data() + 1).out()
-    }, {name: "test6__", external: true, vtype: "number"})
+    }, {name: "test6__", external: true})
+
+    return "test6"
 }
 
 function test7(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == "hello")
         aInput.setData("world").out()
-    }, {name: "test7", external: true, vtype: "string"})
+    }, {name: "test7", external: true})
+
+    return "test7"
 }
 
 function test8(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == "hello")
         aInput.outs("Pass: test8", "testSuccessJS")
-    }, {name: "test8", external: true, vtype: "string"})
+    }, {name: "test8", external: true})
+
+    return "test8"
 }
 
 function test9(){
@@ -146,36 +145,108 @@ function test9(){
 }
 
 function test11(){
-
+    return "test11"
 }
 
 function test12(){
-
+    return "test12"
 }
 
 function test13(){
+    return "test13"
+}
 
+function test14(){
+    return "test14"
+}
+
+function test15(){
+    pipelines().add(function(aInput){
+        console.assert(aInput.data() == 66)
+        aInput.setData(77).out()
+    }, {name: "test15", type: "Partial"})
+    .nextFB(function(aInput){
+        console.assert(aInput.data() == 77)
+        aInput.outs("Pass: test15", "testSuccessJS")
+    }, "test15")
+    .nextF(function(aInput){
+        console.assert(aInput.data() == 77)
+        aInput.outs("Fail: test15", "testFailJS")
+    }, "test15_")
+
+    pipelines().run("test15", 66, "test15")
+}
+
+function test16(){
+    pipelines().add(function(aInput){
+        console.assert(aInput.data() == 66)
+        aInput.setData(77).out()
+    }, {name: "test16", external: true, type: "Partial"})
+    return "test16"
+}
+
+function test17(){
+    pipelines().find("test17").removeNext("test17_")
+    pipelines().find("test17").removeNext("test17__")
+
+    pipelines().find("test17")
+    .nextFB(function(aInput){
+        console.assert(aInput.data() == 77.0)
+        aInput.outs("Pass: test17", "testSuccessJS")
+    }, "test17", {name: "test17_"})
+    .nextF(function(aInput){
+        console.assert(aInput.data() == 77.0)
+        aInput.outs("Fail: test17", "testFailJS")
+    }, "test17_", {name: "test17__"})
+
+    pipelines().run("test17", 66, "test17")
+}
+
+// 控件控制函数
+function onBtnSendMsg()
+{
+    pipelines().run("unitTest")
+    //var cmd = document.getElementById("待发送消息").value;
+    sendMessage({
+                    [test6()]: 1, //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++
+                    [test7()]: 1, //test pipe mixture: c++.future(js)->c++
+                    [test8()]: 1, //test pipe mixture: c++.future(js)
+                    [test11()]: 1, //test c++ anonymous next
+                    [test12()]: 1, //test c++ specific next
+                    [test13()]: 3, //test c++ pipe future
+                    [test14()]: 1,//test c++ pipe future
+                    [test16()]: 1 //test pipe mixture: c++.future(js)->c++
+                });
 }
 
 function unitTest(){
+    let test_sum = 0
+    let test_pass = 0
+
     pipelines().add(function(aInput){
-        console.log("Success: " + aInput.data())
+        test_pass++
+        console.log("Success: " + aInput.data() + "(" + test_pass + "/" + test_sum + ")")
     }, {name: "testSuccessJS"})
 
     pipelines().add(function(aInput){
-        test1() //test js anonymous next
-        test2() //test js specific next
-        test3() //test js pipe future
-        test4() //test pipe mixture: js->js.future(c++)->js.future(c++)->js(external)->js
-        test5() //test pipe mixture: js.future(c++)->js(external)->js
-        test6() //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++(external)->c++
-        test7() //test pipe mixture: c++.future(js)->c++(external)->c++
-        test8() //test pipe mixture: c++.future(js)->js
-        test9() //test pipe mixture: js.future(c++)->c++
-        test11() //test c++ anonymous next
-        test12() //test c++ specific next
-        test13() //test c++ pipe future
+        test_pass--
+        console.log("Fail: " + aInput.data() + "(" + test_pass + "/" + test_sum + ")")
+    }, {name: "testFailJS"})
+
+    pipelines().add(function(aInput){
+        let test = [
+            [test1, 1], //test js anonymous next
+            [test2, 1], //test js specific next
+            [test3, 3], //test js pipe future
+            [test4, 1], //test pipe mixture: js->js.future(c++)->js.future(c++)->js
+            [test5, 1], //test pipe mixture: js.future(c++)->js
+            [test9, 1], //test pipe mixture: js.future(c++)
+            [test15, 1], //test js pipe partial
+            [test17, 1] //test pipe mixture: js.future(c++)->js
+        ]
+        for (let i in test)
+            test_sum += test[i][1]
+        for (let i in test)
+            test[i][0]()
     }, {name: "unitTest"})
 }
-
-unitTest();

@@ -118,6 +118,7 @@ if (typeof qt != "undefined"){
         PipelineJS.executeJSPipe.connect(function(aName, aStream, aSync){
             pipelines().execute(aName, new stream(aStream.data, aStream.tag), true, aSync)
         })
+        unitTest()
     })
 }else
     alert("qt object not exists!")
@@ -173,25 +174,35 @@ class pipe {
     }
 
     next(aName, aTag = ""){
+        console.assert(!this.m_external)
         const tags = aTag.split(";")
         for (let i in tags)
             this.insertNext(aName, tags[i])
         return pipelines().find(aName)
     }
 
+    nextB(aName, aTag = ""){
+        this.next(aName, aTag)
+        return this
+    }
+
     nextF(aFunc, aTag = "", aParam = {}){
         return this.next(pipelines().add(aFunc, aParam).actName(), aTag)
     }
 
+    nextFB(aFunc, aTag = "", aParam = {}){
+        this.nextF(aFunc, aTag, aParam)
+        return this
+    }
+
     removeNext(aName){
+        console.assert(!this.m_external)
         delete this.m_next[aName]
     }
 
     initialize(aFunc, aParam){
         this.m_func = aFunc
         this.m_external = aParam["external"]
-        if (this.m_external)
-            PipelineJS.pipeAdded(this.actName(), aParam["vtype"] || "object")
         return this
     }
 
@@ -212,7 +223,7 @@ class pipe {
         const pip = pipelines().find(aName)
         if (pip)
             if (pip.m_external)
-                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data()}, {})
+                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data(), tag: aStream.tag()}, {})
             else
                 pip.execute(aStream)
     }
@@ -294,7 +305,7 @@ class pipeFuture extends pipe{
         let sync = {}
         if (this.m_next2.length)
             sync["next"] = this.m_next2
-        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data()}, sync)
+        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data(), tag: aStream.tag()}, sync)
     }
 }
 
@@ -313,7 +324,11 @@ class pipeline{
 
     add(aFunc, aParam){
         const nm = aParam["name"]
-        const pip = new pipe(nm)
+        let pip
+        if (aParam["type"] == "Partial")
+            pip = new pipePartial(nm)
+        else
+            pip = new pipe(nm)
         if (nm != ""){
             const ad = pip.actName() + "_pipe_add"
             pipelines().call(ad)
@@ -325,11 +340,8 @@ class pipeline{
 
     remove(aName){
         const pip = pipelines().m_pipes[aName]
-        if (pip){
-            if (pip.m_external)
-                PipelineJS.pipeAdded(pip.actName(), "")
+        if (pip)
             delete pipelines().m_pipes[aName]
-        }
     }
 
     find(aName, aNeedFuture = true){
@@ -414,6 +426,6 @@ class pipeDelegate extends pipe{
         const del = pipelines().find(this.m_delegate)
         for (let i in this.m_next2)
             del.insertNext(this.m_next2[i][0], this.m_next2[i][1])
-        super(aFunc, aParam)
+        pipe.initialize.call(this, aFunc, aParam)
     }
 }
