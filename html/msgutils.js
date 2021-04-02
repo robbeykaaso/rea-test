@@ -239,14 +239,65 @@ function test20_(){
 
 }
 
+function test21(){
+    pipelines().add(function(aInput){
+        console.assert(aInput.data() == 66.0)
+        aInput.out()
+    }, {name: "test21_0",
+        delegate: "test21",
+        type: "Delegate"})
+    .nextB("testSuccess")
+    .next("testSuccessJS")
+
+    pipelines().run("test21_0", 66)
+    pipelines().run("test21", 56)
+}
+
+function test21_(){
+    return "test21"
+}
+
+function test22(){
+    return "test22"
+}
+
+async function test23(){
+    let stm = await pipelines().input(0, "test23")
+    .asyncCallF(function(aInput){
+        aInput.setData(aInput.data() + 1).out()
+    })
+    stm = await stm.asyncCallF(function(aInput){
+        console.assert(aInput.data() == 1)
+        aInput.outs("world")
+    })
+    stm = await stm.asyncCallF(function(aInput){
+        console.assert(aInput.data() == "world")
+        aInput.setData("Pass: test23").out()
+    })
+    stm = await stm.asyncCall("testSuccessJS")
+}
+
+async function test24(){
+    let stm = await pipelines().input(24, "test24").asyncCall("test24")
+    stm = await stm.asyncCall("testSuccessJS")
+}
+
+function test25(){
+    pipelines().add(function(aInput){
+        console.assert(aInput.data() == 25.0)
+        aInput.setData("Pass: test25").out()
+    }, {name: "test25", external: true})
+
+    return "test25"
+}
+
 // 控件控制函数
 function onBtnSendMsg()
 {
     pipelines().run("unitTest")
     //var cmd = document.getElementById("待发送消息").value;
     sendMessage({
-                    [test6()]: 1
-                    , //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++
+                    /*[test6()]: 1, //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++
                     [test7()]: 1, //test pipe mixture: c++.future(js)->c++
                     [test8()]: 1, //test pipe mixture: c++.future(js)
                     [test11()]: 1, //test c++ anonymous next
@@ -255,7 +306,11 @@ function onBtnSendMsg()
                     [test14()]: 1,//test c++ pipe future
                     [test16()]: 1, //test pipe mixture partial: c++.future(js)->c++
                     [test18()]: 1, //test c++ pipe delegate and pipe param
-                    [test20()]: 1 //test pipe mixture delegate: c++->c++.future(js)->js, c++
+                    [test20()]: 1, //test pipe mixture delegate: c++->c++.future(js)->js, c++
+                    [test21_()]: 1,  //test pipe mixture delegate: js->js.future(c++)->c++, js
+                    [test22()]: 1 //test c++ asyncCall
+                    */
+                    [test25()]: 1 //test pipe mixture: c++.asyncCall.js
 
                 });
 }
@@ -276,7 +331,7 @@ function unitTest(){
 
     pipelines().add(function(aInput){
         let test = [
-            [test1, 1], //test js anonymous next
+           /* [test1, 1], //test js anonymous next
             [test2, 1], //test js specific next
             [test3, 3], //test js pipe future
             [test4, 1], //test pipe mixture: js->js.future(c++)->js.future(c++)->js
@@ -285,8 +340,11 @@ function unitTest(){
             [test15, 1], //test js pipe partial
             [test17, 1], //test pipe mixture partial: js.future(c++)->js
             [test19, 1], //test js pipe delegate and pipe param
-            [test20_, 1] //test pipe mixture delegate: c++->c++.future(js)->js, c++
-
+            [test20_, 1], //test pipe mixture delegate: c++->c++.future(js)->js, c++
+            [test21, 1],  //test pipe mixture delegate: js->js.future(c++)->c++, js
+            [test23, 1], //test js asyncCall
+            [test24, 1] //test pipe mixture: js.asyncCall.c++
+            */
         ]
         for (let i in test)
             test_sum += test[i][1]

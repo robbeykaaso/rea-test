@@ -286,10 +286,48 @@ void MainWindow::unitTest(){
         rea4::pipeline::run<double>("test20", 56, "", false);
     });
 
+    rea4::m_tests.insert("test21", [](){
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            assert(aInput->data() == 56.0);
+            aInput->outs<QString>("Pass: test21");
+        }, rea::Json("name", "test21", "external", true));
+    });
+
+    rea4::m_tests.insert("test22", [](){
+        rea4::pipeline::input<int>(0, "test22")
+            ->asyncCall<int>([](rea4::stream<int>* aInput){
+                aInput->setData(aInput->data() + 1)->out();
+            }, rea::Json("thread", 1))
+            ->asyncCall<QString>([](rea4::stream<int>* aInput){
+                assert(aInput->data() == 1);
+                aInput->outs<QString>("world");
+            }, rea::Json("thread", 2))
+            ->asyncCall<QString>([](rea4::stream<QString>* aInput){
+                assert(aInput->data() == "world");
+                aInput->setData("Pass: test22")->out();
+            })
+            ->asyncCall("testSuccess");
+    });
+
+    rea4::m_tests.insert("test24", [](){
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            assert(aInput->data() == 24.0);
+            aInput->outs<QString>("Pass: test24");
+        }, rea::Json("name", "test24", "thread", 5, "external", true));
+    });
+
+    rea4::m_tests.insert("test25", [](){
+        rea4::pipeline::input<double>(25, "test25")
+            ->asyncCall("test25")
+            ->asyncCall("testSuccess");
+    });
+
     rea4::test("test4");
     rea4::test("test5");
     rea4::test("test9");
     rea4::test("test17");
+    rea4::test("test21");
+    rea4::test("test24");
 }
 
 MainWindow::~MainWindow()

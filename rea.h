@@ -285,7 +285,7 @@ public:
 
     template<typename T>
     static std::shared_ptr<stream<T>> input(T aInput = T(), const QString& aTag = "", bool aTransaction = true, std::shared_ptr<QHash<QString, std::shared_ptr<stream0>>> aScopeCache = nullptr){
-        auto tag = aTag == "" ? generateUUID() : aTag;
+        auto tag = aTag == "" ? rea::generateUUID() : aTag;
         auto rt = aTransaction ? std::make_shared<transaction>("", tag) : nullptr;
         instance()->tryStartTransaction(rt);
         return std::make_shared<stream<T>>(aInput, tag, aScopeCache, rt);
@@ -457,7 +457,7 @@ public:
             }else
                 timeout = true;
         }, m_tag);
-        pipeline::instance()->execute(aName, shared_from_this(), true);
+        pipeline::instance()->execute(aName, shared_from_this());
         if (!timeout)
             loop.exec();
         pipeline::find(aName)->removeNext(monitor->actName());

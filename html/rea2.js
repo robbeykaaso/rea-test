@@ -152,6 +152,34 @@ class stream {
             this.m_outs = []
         this.m_outs.push([aNext, new stream(aOut, aTag == "" ? this.m_tag : aTag)])
     }
+
+    async asyncCall(aName){
+        let ret
+        let got_ret = false
+
+        const monitor = pipelines().find(aName).nextF(aInput => {
+            ret = new stream(aInput.data(), this.m_tag)
+            got_ret = true
+
+        }, this.m_tag)
+        pipelines().execute(aName, this)
+
+        function sleep(time) {
+          return new Promise(resolve => setTimeout(resolve,time))
+        }
+        while(!got_ret)
+            await sleep(5)
+        pipelines().find(aName).removeNext(monitor.actName())
+        pipelines().remove(monitor.actName())
+
+        return ret
+    }
+    async asyncCallF(aFunc, aParam = {}){
+        const pip = pipelines().add(aFunc, aParam)
+        const ret = await this.asyncCall(pip.actName())
+        pipelines().remove(pip.actName())
+        return ret
+    }
 }
 
 class pipe {
@@ -375,6 +403,11 @@ class pipeline{
             }
             pip.execute(aStream)    
         }
+    }
+
+    input(aInput, aTag = ""){
+        const tag = aTag == "" ? generateUUID() : aTag
+        return new stream(aInput, tag)
     }
 }
 

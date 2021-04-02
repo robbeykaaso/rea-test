@@ -199,7 +199,7 @@ void pipe0::doNextEvent(const QMap<QString, QString>& aNexts, std::shared_ptr<st
             for (auto i : *outs)
                 if (i.first == ""){
                     for (auto j : aNexts.keys())
-                        tryExecutePipe(j, aStream);
+                        tryExecutePipe(j, i.second);
                 }else
                     tryExecutePipe(i.first, i.second);
         }else
