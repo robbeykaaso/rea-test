@@ -106,7 +106,7 @@ QString stream0::cache(const QString& aID){
     return id;
 }
 
-pipe0::pipe0(const QString& aName, int aThreadNo, bool aReplace){
+pipe0::pipe0(const QString& aName, int aThreadNo){
     if (aName == "")
         m_name = rea::generateUUID();
     else
@@ -115,10 +115,7 @@ pipe0::pipe0(const QString& aName, int aThreadNo, bool aReplace){
         m_thread = pipeline::instance()->findThread(aThreadNo);
         moveToThread(m_thread);
     }
-    auto old = pipeline::find(m_name, false);
-    if (old){
-        if (aReplace)
-            m_next = old->m_next;
+    if (pipeline::find(m_name, false)){
         pipeline::remove(m_name);
     }
     pipeline::instance()->m_pipes.insert(m_name, this);
@@ -188,7 +185,7 @@ void pipe0::tryExecutePipe(const QString& aName, std::shared_ptr<stream0> aStrea
     if (pip){
         aStream->addTrig(actName(), pip->actName());
         if (pip->m_external)
-            pipeline::instance()->tryExecutePipeOutside(pip->actName(), aStream);
+            pipeline::instance()->tryExecutePipeOutside(pip->actName(), aStream, QJsonObject(), false);
         else
             pip->execute(aStream);
     }
@@ -250,8 +247,8 @@ private:
 
 static QHash<QString, pipeline*> pipelines;
 
-void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync){
-    auto pip = find(aName);
+void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, bool aFromOutside){
+    auto pip = find(aName, !aFromOutside);
     if (pip){
         if (!aSync.empty()){
             pip->resetTopo();
@@ -268,10 +265,10 @@ void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, c
     }
 }
 
-void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync){
+void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, bool aFromOutside){
     for (auto i : pipelines)
         if (i != this)
-            i->execute(aName, aStream, aSync);
+            i->execute(aName, aStream, aSync, aFromOutside);
 }
 
 void pipeFuture::execute(std::shared_ptr<stream0> aStream){

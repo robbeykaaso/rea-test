@@ -160,7 +160,7 @@ protected:
         QString m_name;
         std::shared_ptr<stream0> m_stream;
     };
-    pipe0(const QString& aName = "", int aThreadNo = 0, bool aReplace = false);
+    pipe0(const QString& aName = "", int aThreadNo = 0);
     virtual void insertNext(const QString& aName, const QString& aTag) {
         m_next.insert(aName, aTag);
     }
@@ -210,7 +210,7 @@ public:
     template<typename T, template<typename> class P = pipe>
     static pipe0* add(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()){
         auto nm = aParam.value("name").toString();
-        auto tmp = new P<T>(nm, aParam.value("thread").toInt(), aParam.value("replace").toBool());  //https://stackoverflow.com/questions/213761/what-are-some-uses-of-template-template-parameters
+        auto tmp = new P<T>(nm, aParam.value("thread").toInt());  //https://stackoverflow.com/questions/213761/what-are-some-uses-of-template-template-parameters
         if (nm != ""){
             auto ad = tmp->actName() + "_pipe_add";
             pipeline::call<int>(ad, 0);
@@ -295,8 +295,8 @@ public:
 
     }
 protected:
-    virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject());
-    void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject());
+    virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = false);
+    void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = true);
 private:
     QThread* findThread(int aNo);
     QHash<QString, pipe0*> m_pipes;
@@ -488,7 +488,7 @@ void externalAdded(const QString& aName, const QString& aType);
 template <typename T>
 class pipe : public pipe0{
 protected:
-    pipe(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe0(aName, aThreadNo, aReplace) {}
+    pipe(const QString& aName = "", int aThreadNo = 0) : pipe0(aName, aThreadNo) {}
     virtual pipe0* initialize(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()){
         m_func = aFunc;
         m_external = aParam.value("external").toBool();
@@ -568,7 +568,7 @@ private:
 template <typename T>
 class pipeAsync : public pipe<T>{
 protected:
-    pipeAsync(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe<T>(aName, aThreadNo, aReplace){
+    pipeAsync(const QString& aName = "", int aThreadNo = 0) : pipe<T>(aName, aThreadNo){
 
     }
     void execute(std::shared_ptr<stream0> aStream) override{
@@ -591,7 +591,7 @@ public:
         pipeline::find(m_delegate)->removeNext(aName);
     }
 protected:
-    pipeDelegate(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe<T>(aName, aThreadNo, aReplace) {}
+    pipeDelegate(const QString& aName = "", int aThreadNo = 0) : pipe<T>(aName, aThreadNo) {}
     bool event( QEvent* e) override{
         if(e->type()== pipe0::streamEvent::type){
             auto eve = reinterpret_cast<pipe0::streamEvent*>(e);
@@ -629,7 +629,7 @@ public:
             i.value().remove(aName);
     }
 protected:
-    pipePartial(const QString& aName, int aThreadNo = 0, bool aReplace = false) : pipe<T>(aName, aThreadNo, aReplace) {
+    pipePartial(const QString& aName, int aThreadNo = 0) : pipe<T>(aName, aThreadNo) {
 
     }
     void insertNext(const QString& aName, const QString& aTag) override {

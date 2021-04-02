@@ -202,20 +202,61 @@ function test17(){
     pipelines().run("test17", 66, "test17")
 }
 
+function test18(){
+    return "test18"
+}
+
+function test19(){
+    pipelines().remove("test19")
+
+    pipelines().add(function(aInput){
+        console.assert(aInput.data() == 66.0)
+        aInput.out()
+    }, {name: "test19_0",
+        delegate: "test19",
+        type: "Delegate"})
+    .next("testSuccessJS")
+
+    pipelines().add(function(aInput){
+        console.assert(aInput.data() == 56.0)
+        aInput.setData("Pass: test19").out()
+    }, {name: "test19"})
+
+    pipelines().run("test19_0", 66.0)
+    pipelines().run("test19", 56.0)
+}
+
+function test20(){
+    pipelines().add(function(aInput){
+        console.assert(aInput.data() == 56.0)
+        aInput.setData("Pass: test20").out()
+    }, {name: "test20", external: true})
+
+    return "test20"
+}
+
+function test20_(){
+
+}
+
 // 控件控制函数
 function onBtnSendMsg()
 {
     pipelines().run("unitTest")
     //var cmd = document.getElementById("待发送消息").value;
     sendMessage({
-                    [test6()]: 1, //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++
+                    [test6()]: 1
+                    , //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++
                     [test7()]: 1, //test pipe mixture: c++.future(js)->c++
                     [test8()]: 1, //test pipe mixture: c++.future(js)
                     [test11()]: 1, //test c++ anonymous next
                     [test12()]: 1, //test c++ specific next
                     [test13()]: 3, //test c++ pipe future
                     [test14()]: 1,//test c++ pipe future
-                    [test16()]: 1 //test pipe mixture: c++.future(js)->c++
+                    [test16()]: 1, //test pipe mixture partial: c++.future(js)->c++
+                    [test18()]: 1, //test c++ pipe delegate and pipe param
+                    [test20()]: 1 //test pipe mixture delegate: c++->c++.future(js)->js, c++
+
                 });
 }
 
@@ -242,7 +283,10 @@ function unitTest(){
             [test5, 1], //test pipe mixture: js.future(c++)->js
             [test9, 1], //test pipe mixture: js.future(c++)
             [test15, 1], //test js pipe partial
-            [test17, 1] //test pipe mixture: js.future(c++)->js
+            [test17, 1], //test pipe mixture partial: js.future(c++)->js
+            [test19, 1], //test js pipe delegate and pipe param
+            [test20_, 1] //test pipe mixture delegate: c++->c++.future(js)->js, c++
+
         ]
         for (let i in test)
             test_sum += test[i][1]

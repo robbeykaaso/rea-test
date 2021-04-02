@@ -118,20 +118,20 @@ void MainWindow::unitTest(){
             }, rea::Json("name", "test5", "external", true));
         )
 
-    addTest(test6,
-            rea4::pipeline::find("test6__")->removeNext("test_6");
-            rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
-                aInput->out();
-            }, rea::Json("name", "test6"))
-                ->next("test6_")
-                ->next("test6__")
-                ->next<double>([](rea4::stream<double>* aInput){
-                    assert(aInput->data() == 6.0);
-                    aInput->outs<QString>("Pass: test6", "testSuccess");
-                }, "", rea::Json("name", "test_6"));
+    rea4::m_tests.insert("test6",[](){
+        rea4::pipeline::find("test6__")->removeNext("test_6");
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            aInput->out();
+        }, rea::Json("name", "test6"))
+            ->next("test6_")
+            ->next("test6__")
+            ->next<double>([](rea4::stream<double>* aInput){
+                assert(aInput->data() == 6.0);
+                aInput->outs<QString>("Pass: test6", "testSuccess");
+            }, "", rea::Json("name", "test_6"));
 
-            rea4::pipeline::run<double>("test6", 4);
-        )
+        rea4::pipeline::run<double>("test6", 4);
+    });
 
     addTest(test7,
             rea4::pipeline::find("test7")->removeNext("test_7");
@@ -257,6 +257,35 @@ void MainWindow::unitTest(){
             aInput->setData(77)->out();
         }, rea::Json("name", "test17", "external", true));
     });
+
+    rea4::m_tests.insert("test18", [](){
+        rea4::pipeline::add<int, rea4::pipeDelegate>([](rea4::stream<int>* aInput){
+            assert(aInput->data() == 66);
+            aInput->out();
+        }, rea::Json("name", "test18_0", "delegate", "test18"))
+        ->next("testSuccess");
+
+        rea4::pipeline::add<int>([](rea4::stream<int>* aInput){
+            assert(aInput->data() == 56);
+            aInput->outs<QString>("Pass: test18", "testSuccess");
+        }, rea::Json("name", "test18"));
+
+        rea4::pipeline::run<int>("test18_0", 66, "", false);
+        rea4::pipeline::run<int>("test18", 56, "", false);
+    });
+
+    rea4::m_tests.insert("test20", [](){
+        rea4::pipeline::add<double, rea4::pipeDelegate>([](rea4::stream<double>* aInput){
+            assert(aInput->data() == 66.0);
+            aInput->out();
+        }, rea::Json("name", "test20_0", "delegate", "test20"))
+            ->nextB("testSuccess")
+            ->next("testSuccessJS");
+
+        rea4::pipeline::run<double>("test20_0", 66, "", false);
+        rea4::pipeline::run<double>("test20", 56, "", false);
+    });
+
     rea4::test("test4");
     rea4::test("test5");
     rea4::test("test9");

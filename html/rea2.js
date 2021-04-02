@@ -115,8 +115,8 @@ if (typeof qt != "undefined"){
     new QWebChannel(qt.webChannelTransport, function(channel){
         context = channel.objects.context;
         PipelineJS = channel.objects.Pipeline;
-        PipelineJS.executeJSPipe.connect(function(aName, aStream, aSync){
-            pipelines().execute(aName, new stream(aStream.data, aStream.tag), true, aSync)
+        PipelineJS.executeJSPipe.connect(function(aName, aStream, aSync, aFromOutside){
+            pipelines().execute(aName, new stream(aStream.data, aStream.tag), aSync, aFromOutside)
         })
         unitTest()
     })
@@ -223,7 +223,7 @@ class pipe {
         const pip = pipelines().find(aName)
         if (pip)
             if (pip.m_external)
-                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data(), tag: aStream.tag()}, {})
+                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data(), tag: aStream.tag()}, {}, false)
             else
                 pip.execute(aStream)
     }
@@ -305,7 +305,7 @@ class pipeFuture extends pipe{
         let sync = {}
         if (this.m_next2.length)
             sync["next"] = this.m_next2
-        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data(), tag: aStream.tag()}, sync)
+        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data(), tag: aStream.tag()}, sync, true)
     }
 }
 
@@ -327,6 +327,8 @@ class pipeline{
         let pip
         if (aParam["type"] == "Partial")
             pip = new pipePartial(nm)
+        else if (aParam["type"] == "Delegate")
+            pip = new pipeDelegate(nm)
         else
             pip = new pipe(nm)
         if (nm != ""){
@@ -352,7 +354,7 @@ class pipeline{
     }
 
     run(aName, aInput, aTag = ""){
-        pipelines().execute(aName, new stream(aInput, aTag), true)
+        pipelines().execute(aName, new stream(aInput, aTag))
     }
 
     call(aName, aInput){
@@ -361,19 +363,16 @@ class pipeline{
             pip.doEvent(new stream(aInput))
     }
 
-    execute(aName, aStream, aNeedFuture, aSync){
-        const pip = this.find(aName, aNeedFuture)
-        if (pip){
-            if (!aNeedFuture){
-                if (!pip.m_external)
-                    return
-                pip.resetTopo()
-            }
-            
-            if (aSync)
+    execute(aName, aStream, aSync, aFromOutside = false){
+        const pip = this.find(aName, !aFromOutside)
+        if (pip){            
+            if (aSync){
+                if (Object.keys(aSync).length > 0)
+                    pip.resetTopo()
                 if (aSync["next"])
                     for (let i in aSync["next"])
                         pip.insertNext(aSync["next"][i][0], aSync["next"][i][1])
+            }
             pip.execute(aStream)    
         }
     }
@@ -426,6 +425,6 @@ class pipeDelegate extends pipe{
         const del = pipelines().find(this.m_delegate)
         for (let i in this.m_next2)
             del.insertNext(this.m_next2[i][0], this.m_next2[i][1])
-        pipe.initialize.call(this, aFunc, aParam)
+        pipe.prototype.initialize.call(this, aFunc, aParam)
     }
 }
