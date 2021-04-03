@@ -270,8 +270,8 @@ void MainWindow::unitTest(){
             aInput->outs<QString>("Pass: test18", "testSuccess");
         }, rea::Json("name", "test18"));
 
-        rea4::pipeline::run<int>("test18_0", 66, "", false);
-        rea4::pipeline::run<int>("test18", 56, "", false);
+        rea4::pipeline::run<int>("test18_0", 66);
+        rea4::pipeline::run<int>("test18", 56);
     });
 
     rea4::m_tests.insert("test20", [](){
@@ -282,8 +282,8 @@ void MainWindow::unitTest(){
             ->nextB("testSuccess")
             ->next("testSuccessJS");
 
-        rea4::pipeline::run<double>("test20_0", 66, "", false);
-        rea4::pipeline::run<double>("test20", 56, "", false);
+        rea4::pipeline::run<double>("test20_0", 66);
+        rea4::pipeline::run<double>("test20", 56);
     });
 
     rea4::m_tests.insert("test21", [](){
@@ -317,9 +317,12 @@ void MainWindow::unitTest(){
     });
 
     rea4::m_tests.insert("test25", [](){
-        rea4::pipeline::input<double>(25, "test25")
-            ->asyncCall("test25")
-            ->asyncCall("testSuccess");
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            rea4::pipeline::input<double>(25, "test25")
+                ->asyncCall<QString>("test25")
+                ->asyncCall("testSuccess");
+        }, rea::Json("name", "test25_", "thread", 1));
+        rea4::pipeline::run<double>("test25_", 0);
     });
 
     rea4::test("test4");

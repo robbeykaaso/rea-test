@@ -118,6 +118,9 @@ if (typeof qt != "undefined"){
         PipelineJS.executeJSPipe.connect(function(aName, aStream, aSync, aFromOutside){
             pipelines().execute(aName, new stream(aStream.data, aStream.tag), aSync, aFromOutside)
         })
+        PipelineJS.removeJSPipe.connect(function(aName){
+            pipelines().remove(aName)
+        })
         unitTest()
     })
 }else
@@ -153,6 +156,15 @@ class stream {
         this.m_outs.push([aNext, new stream(aOut, aTag == "" ? this.m_tag : aTag)])
     }
 
+    async asyncCallS(){
+        let stm = this
+        for (const i in arguments)
+            if (typeof arguments[i] == "string")
+                stm = await stm.asyncCall(arguments[i])
+            else
+                stm = await stm.asyncCallF(arguments[i][0], arguments[i][1])
+    }
+
     async asyncCall(aName){
         let ret
         let got_ret = false
@@ -170,14 +182,14 @@ class stream {
         while(!got_ret)
             await sleep(5)
         pipelines().find(aName).removeNext(monitor.actName())
-        pipelines().remove(monitor.actName())
+        pipelines().remove(monitor.actName(), true)
 
         return ret
     }
     async asyncCallF(aFunc, aParam = {}){
         const pip = pipelines().add(aFunc, aParam)
         const ret = await this.asyncCall(pip.actName())
-        pipelines().remove(pip.actName())
+        pipelines().remove(pip.actName(), true)
         return ret
     }
 }
@@ -368,10 +380,12 @@ class pipeline{
         return pip
     }
 
-    remove(aName){
+    remove(aName, aOutside = false){
         const pip = pipelines().m_pipes[aName]
         if (pip)
             delete pipelines().m_pipes[aName]
+        if (aOutside)
+            PipelineJS.removePipeOutside(aName)
     }
 
     find(aName, aNeedFuture = true){

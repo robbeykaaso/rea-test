@@ -46,5 +46,13 @@ void pipelineJS::tryExecuteOutsidePipe(const QString& aName, const QJsonObject& 
         assert(0);
 }
 
+void pipelineJS::removePipeOutside(const QString& aName){
+    pipeline::removePipeOutside(aName);
+}
+
+void pipelineJS::remove(const QString& aName, bool){
+    removeJSPipe(aName);
+}
+
 }
 
