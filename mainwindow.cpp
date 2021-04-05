@@ -79,6 +79,24 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     unitTest();
 }
 
+class foo{
+public:
+    foo(int aStart){
+        m_start = aStart;
+    }
+    void operator()(rea4::stream<int>* aInput) {
+        auto ret = aInput->data() + m_start;
+        aInput->setData(ret)->out();
+    }
+
+    void memberFoo(rea4::stream<int>* aInput){
+        auto ret = aInput->data() + m_start;
+        aInput->setData(ret)->out();
+    }
+private:
+    int m_start;
+};
+
 void MainWindow::unitTest(){
     rea4::pipeline::add<QString>([](rea4::stream<QString>* aInput){
         test_pass++;
@@ -323,6 +341,53 @@ void MainWindow::unitTest(){
                 ->asyncCall("testSuccess");
         }, rea::Json("name", "test25_", "thread", 1));
         rea4::pipeline::run<double>("test25_", 0);
+    });
+
+    rea4::m_tests.insert("test26", [](){
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            auto dt = aInput->data();
+            assert(dt == 1.0);
+            aInput->setData(dt + 1)->out();
+        }, rea::Json("name", "test__26", "before", "test_26", "replace", true));
+
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            auto dt = aInput->data();
+            assert(dt == 2.0);
+            aInput->setData(dt + 1)->out();
+        }, rea::Json("name", "test_26", "before", "test26", "replace", true));
+
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            auto dt = aInput->data();
+            assert(dt == 3.0);
+            aInput->setData(dt + 1)->out();
+        }, rea::Json("name", "test26", "replace", true));
+
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            auto dt = aInput->data();
+            assert(dt == 4.0);
+            aInput->setData(dt + 1)->out();
+        }, rea::Json("name", "test26_", "after", "test26", "replace", true));
+
+        rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            auto dt = aInput->data();
+            assert(dt == 5.0);
+            aInput->outs<QString>("Pass: test26", "testSuccess");
+        }, rea::Json("name", "test26__", "after", "test26_", "replace", true));
+
+        rea4::pipeline::run<double>("test26", 1);
+    });
+
+    rea4::m_tests.insert("test27", [](){
+        auto tmp = foo(6);
+        rea4::pipeline::add<int>(foo(2));
+        rea4::pipeline::input<int>(3)
+            ->asyncCall<int>(foo(2))
+            ->asyncCall<int>(std::bind1st(std::mem_fun(&foo::memberFoo), &tmp))
+            ->asyncCall<QString>([](rea4::stream<int>* aInput){
+                assert(aInput->data() == 11);
+                aInput->outs<QString>("Pass: test27")->out();
+            })
+            ->asyncCall("testSuccess");
     });
 
     rea4::test("test4");

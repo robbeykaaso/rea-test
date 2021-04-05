@@ -7,7 +7,41 @@
 
 namespace rea4 {
 
-pipe0::pipe0(const QString& aName, int aThreadNo){
+scopeCache::scopeCache(const QJsonObject& aData){
+    for (auto i : aData.keys()){
+        auto val = aData.value(i);
+        if (val.isObject())
+            m_data.insert(i, std::make_shared<stream<QJsonObject>>(val.toObject()));
+        else if (val.isArray())
+            m_data.insert(i, std::make_shared<stream<QJsonArray>>(val.toArray()));
+        else if (val.isBool())
+            m_data.insert(i, std::make_shared<stream<bool>>(val.toBool()));
+        else if (val.isString())
+            m_data.insert(i, std::make_shared<stream<QString>>(val.toString()));
+        else if (val.isDouble())
+            m_data.insert(i, std::make_shared<stream<double>>(val.toDouble()));
+    }
+}
+
+QJsonObject scopeCache::toJson(){
+    QJsonObject ret;
+    for (auto i : m_data.keys()){
+        auto dt = m_data.value(i);
+        if (dt->dataType() == "object")
+            ret.insert(i, std::dynamic_pointer_cast<stream<QJsonObject>>(dt)->data());
+        else if (dt->dataType() == "array")
+            ret.insert(i, std::dynamic_pointer_cast<stream<QJsonArray>>(dt)->data());
+        else if (dt->dataType() == "bool")
+            ret.insert(i, std::dynamic_pointer_cast<stream<bool>>(dt)->data());
+        else if (dt->dataType() == "string")
+            ret.insert(i, std::dynamic_pointer_cast<stream<QString>>(dt)->data());
+        else if (dt->dataType() == "number")
+            ret.insert(i, std::dynamic_pointer_cast<stream<double>>(dt)->data());
+    }
+    return ret;
+}
+
+pipe0::pipe0(const QString& aName, int aThreadNo, bool aReplace){
     if (aName == "")
         m_name = rea::generateUUID();
     else
@@ -16,7 +50,14 @@ pipe0::pipe0(const QString& aName, int aThreadNo){
         m_thread = pipeline::instance()->findThread(aThreadNo);
         moveToThread(m_thread);
     }
-    if (pipeline::find(m_name, false)){
+    auto old = pipeline::find(m_name, false);
+    if (old){
+        if (aReplace){
+            m_next = old->m_next;
+            m_before = old->m_before;
+            m_around = old->m_around;
+            m_after = old->m_after;
+        }
         pipeline::instance()->remove(m_name);
     }
     pipeline::instance()->m_pipes.insert(m_name, this);
@@ -109,9 +150,11 @@ void pipe0::doNextEvent(const QMap<QString, QString>& aNexts, std::shared_ptr<st
 }
 
 void pipe0::setAspect(QString& aTarget, const QString& aAspect){
-    if (aTarget != "")
-        aTarget += ";";
-    aTarget += aAspect;
+    if (aTarget.indexOf(aAspect) < 0){
+        if (aTarget != "")
+            aTarget += ";";
+        aTarget += aAspect;
+    }
 }
 
 void pipe0::execute(std::shared_ptr<stream0> aStream){
@@ -144,10 +187,6 @@ private:
     QVector<QPair<QString, QString>> m_next2;
     friend pipeFuture;
 };
-
-transaction::transaction(const QString& aID){
-    m_id = aID;
-}
 
 static QHash<QString, pipeline*> pipelines;
 
@@ -240,10 +279,6 @@ void pipeline::removePipeOutside(const QString& aName){
     for (auto i : pipelines.values())
         if (i != this)
             i->remove(aName);
-}
-
-void pipeline::removeTransaction(const QString& aID){
-    m_transactions.remove(aID);
 }
 
 QThread* pipeline::findThread(int aNo){

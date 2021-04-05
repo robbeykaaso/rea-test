@@ -291,6 +291,14 @@ function test25(){
     return "test25"
 }
 
+function test26(){
+    return "test26"
+}
+
+function test27(){
+    return "test27"
+}
+
 // 控件控制函数
 function onBtnSendMsg()
 {
@@ -309,8 +317,9 @@ function onBtnSendMsg()
                     [test20()]: 1, //test pipe mixture delegate: c++->c++.future(js)->js, c++
                     [test21_()]: 1,  //test pipe mixture delegate: js->js.future(c++)->c++, js
                     [test22()]: 1, //test c++ asyncCall
-                    [test25()]: 1 //test pipe mixture: c++.asyncCall.js
-
+                    [test25()]: 1, //test pipe mixture: c++.asyncCall.js
+                    [test26()]: 1, //test c++ aop and keep topo
+                    [test27()]: 1 //test c++ functor
                 });
 }
 

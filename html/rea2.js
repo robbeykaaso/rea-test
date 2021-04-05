@@ -116,7 +116,7 @@ if (typeof qt != "undefined"){
         context = channel.objects.context;
         PipelineJS = channel.objects.Pipeline;
         PipelineJS.executeJSPipe.connect(function(aName, aStream, aSync, aFromOutside){
-            pipelines().execute(aName, new stream(aStream.data, aStream.tag), aSync, aFromOutside)
+            pipelines().execute(aName, new stream(aStream.data, aStream.tag, aStream.scope), aSync, aFromOutside)
         })
         PipelineJS.removeJSPipe.connect(function(aName){
             pipelines().remove(aName)
@@ -128,14 +128,30 @@ if (typeof qt != "undefined"){
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 
+class scopeCache {
+    constructor(aData = {}){
+        this.m_data = aData
+    }
+    cache(aName, aData){
+        this.m_data[aName] = aData
+    }
+    data(aName){
+        return this.m_data[aName]
+    }
+}
+
 class stream {
-    constructor(aInput, aTag = ""){
+    constructor(aInput, aTag = "", aScope = null){
         this.m_data = aInput
         this.m_tag = aTag
+        this.m_scope = aScope
     }
     setData(aData){
         this.m_data = aData
         return this
+    }
+    scope(){
+        return this.m_scope
     }
     data(){
         return this.m_data
@@ -153,7 +169,7 @@ class stream {
     outs(aOut, aNext = "", aTag = ""){
         if (!this.m_outs)
             this.m_outs = []
-        this.m_outs.push([aNext, new stream(aOut, aTag == "" ? this.m_tag : aTag)])
+        this.m_outs.push([aNext, new stream(aOut, aTag == "" ? this.m_tag : aTag, this.m_scope)])
     }
 
     async asyncCallS(){
@@ -263,7 +279,7 @@ class pipe {
         const pip = pipelines().find(aName)
         if (pip)
             if (pip.m_external)
-                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data(), tag: aStream.tag()}, {}, false)
+                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data(), tag: aStream.tag(), scope: aStream.scope()}, {}, false)
             else
                 pip.execute(aStream)
     }
@@ -345,7 +361,7 @@ class pipeFuture extends pipe{
         let sync = {}
         if (this.m_next2.length)
             sync["next"] = this.m_next2
-        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data(), tag: aStream.tag()}, sync, true)
+        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data(), tag: aStream.tag(), scope: aStream.scope()}, sync, true)
     }
 }
 
@@ -395,8 +411,8 @@ class pipeline{
         return pip
     }
 
-    run(aName, aInput, aTag = ""){
-        pipelines().execute(aName, new stream(aInput, aTag))
+    run(aName, aInput, aTag = "", aScope = null){
+        pipelines().execute(aName, new stream(aInput, aTag, aScope))
     }
 
     call(aName, aInput){
@@ -419,9 +435,9 @@ class pipeline{
         }
     }
 
-    input(aInput, aTag = ""){
+    input(aInput, aTag = "", aScope = null){
         const tag = aTag == "" ? generateUUID() : aTag
-        return new stream(aInput, tag)
+        return new stream(aInput, tag, aScope)
     }
 }
 

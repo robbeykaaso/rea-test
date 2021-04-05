@@ -19,6 +19,7 @@ namespace rea4 {
 
 class pipeline;
 
+class stream0;
 template <typename T>
 class stream;
 template <typename T>
@@ -27,10 +28,34 @@ using pipeFunc = std::function<void(stream<T>*)>;
 template <typename T>
 class pipe;
 
+class scopeCache{
+public:
+    scopeCache(){}
+    scopeCache(const QJsonObject& aData);
+    scopeCache* clear(){
+        m_data.clear();
+        return this;
+    }
+    template<typename T>
+    scopeCache* cache(const QString& aName, T aData){
+        m_data.insert(aName, std::make_shared<stream<T>>(aData));
+        return this;
+    }
+    template<typename T>
+    T data(const QString& aName){
+        return std::dynamic_pointer_cast<stream<T>>(m_data.value(aName))->data();
+    }
+    QJsonObject toJson();
+private:
+    QHash<QString, std::shared_ptr<stream0>> m_data;
+};
+
 class stream0 : public std::enable_shared_from_this<stream0>{
 public:
     stream0(const QString& aTag = "") {
+        m_data_type = "";
         m_tag = aTag;
+        m_scope = nullptr;
     }
     stream0(const stream0&) = default;
     stream0(stream0&&) = default;
@@ -43,11 +68,15 @@ public:
         return m_tag;
     }
     QString dataType(){return m_data_type;}
-    QString id(){return m_id;}
+    std::shared_ptr<scopeCache> scope(){
+        if (!m_scope)
+            m_scope = std::make_shared<scopeCache>();
+        return m_scope;
+    }
 protected:
     QString m_data_type;
     QString m_tag;
-    QString m_id;
+    std::shared_ptr<scopeCache> m_scope;
     std::shared_ptr<std::vector<std::pair<QString, std::shared_ptr<stream0>>>> m_outs = nullptr;
     friend class pipe0;
     friend pipeline;
@@ -103,7 +132,7 @@ protected:
         QString m_name;
         std::shared_ptr<stream0> m_stream;
     };
-    pipe0(const QString& aName = "", int aThreadNo = 0);
+    pipe0(const QString& aName = "", int aThreadNo = 0, bool aReplace = false);
     virtual void insertNext(const QString& aName, const QString& aTag) {
         m_next.insert(aName, aTag);
     }
@@ -139,27 +168,6 @@ private:
     friend pipeline;
 };
 
-class transaction{
-public:
-    transaction(const QString& aID);
-    virtual ~transaction(){
-
-    }
-    virtual void pipeIn(pipe0* aPipe){
-        m_remained.insert(aPipe);
-    }
-    virtual void pipeOut(pipe0* aPipe, bool aFinished){
-        m_remained.remove(aPipe);
-        if (!m_remained.size() && aFinished){
-
-        }
-    }
-private:
-    QString m_id;
-    QSet<pipe0*> m_remained;
-    QHash<QString, std::shared_ptr<stream0>> m_scope_cache;
-};
-
 class pipeline : public QObject{
 public:
     static pipeline* instance(const QString& aName = "");
@@ -173,7 +181,7 @@ public:
     template<typename T, template<typename> class P = pipe>
     static pipe0* add(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()){
         auto nm = aParam.value("name").toString();
-        auto tmp = new P<T>(nm, aParam.value("thread").toInt());  //https://stackoverflow.com/questions/213761/what-are-some-uses-of-template-template-parameters
+        auto tmp = new P<T>(nm, aParam.value("thread").toInt(), aParam.value("replace").toBool());  //https://stackoverflow.com/questions/213761/what-are-some-uses-of-template-template-parameters
         if (nm != ""){
             auto ad = tmp->actName() + "_pipe_add";
             pipeline::call<int>(ad, 0);
@@ -209,8 +217,8 @@ public:
     }
 
     template<typename T>
-    static void run(const QString& aName, T aInput, const QString& aTag = ""){
-        auto stm = std::make_shared<stream<T>>(aInput, aTag, aName + ";" + aTag);
+    static void run(const QString& aName, T aInput, const QString& aTag = "", std::shared_ptr<scopeCache> aScope = nullptr){
+        auto stm = std::make_shared<stream<T>>(aInput, aTag, aScope);
         instance()->execute(aName, stm);
     }
 
@@ -230,21 +238,18 @@ public:
     }
 
     template<typename T>
-    static std::shared_ptr<stream<T>> input(T aInput = T(), const QString& aTag = ""){
+    static std::shared_ptr<stream<T>> input(T aInput = T(), const QString& aTag = "", std::shared_ptr<scopeCache> aScope = nullptr){
         auto tag = aTag == "" ? rea::generateUUID() : aTag;
-        return std::make_shared<stream<T>>(aInput, tag, ";" + tag);
+        return std::make_shared<stream<T>>(aInput, tag, aScope);
     }
 protected:
     virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = false);
     virtual void removePipeOutside(const QString& aName);
     void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = true);
 private:
-    void removeTransaction(const QString& aID);
-private:
     QThread* findThread(int aNo);
     QHash<QString, pipe0*> m_pipes;
     QHash<int, std::shared_ptr<QThread>> m_threads;
-    QHash<QString, transaction> m_transactions;
     friend pipe0;
     friend pipeFuture;
     friend stream0;
@@ -307,10 +312,10 @@ template <typename T>
 class stream : public stream0{
 public:
     stream() : stream0(){}
-    stream(T aInput, const QString& aTag = "", const QString& aID = "") : stream0(aTag){
-        m_id = aID;
-        m_data = aInput;
+    stream(T aInput, const QString& aTag = "", std::shared_ptr<scopeCache> aScope = nullptr) : stream0(aTag){
         m_data_type = typeTrait<T>::name();
+        m_data = aInput;
+        m_scope = aScope;
     }
     stream<T>* setData(T aData) {
         m_data = aData;
@@ -334,7 +339,7 @@ public:
     stream<S>* outs(S aOut = S(), const QString& aNext = "", const QString& aTag = ""){
         if (!m_outs)
             m_outs = std::make_shared<std::vector<std::pair<QString, std::shared_ptr<stream0>>>>();
-        auto ot = std::make_shared<stream<S>>(aOut, aTag == "" ? m_tag : aTag, m_id);
+        auto ot = std::make_shared<stream<S>>(aOut, aTag == "" ? m_tag : aTag, m_scope);
         m_outs->push_back(std::pair<QString, std::shared_ptr<stream0>>(aNext, ot));
         return ot.get();
     }
@@ -347,7 +352,7 @@ public:
 
     template<typename S>
     std::shared_ptr<stream<S>> map(S aInput = S()){
-        return std::make_shared<stream<S>>(aInput, m_tag, m_id);
+        return std::make_shared<stream<S>>(aInput, m_tag, m_scope);
     }
 
     template<typename S = T>
@@ -391,7 +396,7 @@ pipe0* nextF0(pipe0* aPipe, pipeFunc<T> aNextFunc, const QString& aTag, const QJ
 template <typename T>
 class pipe : public pipe0{
 protected:
-    pipe(const QString& aName = "", int aThreadNo = 0) : pipe0(aName, aThreadNo) {}
+    pipe(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe0(aName, aThreadNo, aReplace) {}
     virtual pipe0* initialize(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()){
         m_func = aFunc;
         m_external = aParam.value("external").toBool();
@@ -472,7 +477,7 @@ public:
         pipeline::find(m_delegate)->removeNext(aName);
     }
 protected:
-    pipeDelegate(const QString& aName = "", int aThreadNo = 0) : pipe<T>(aName, aThreadNo) {}
+    pipeDelegate(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe<T>(aName, aThreadNo, aReplace) {}
     bool event( QEvent* e) override{
         if(e->type()== pipe0::streamEvent::type){
             auto eve = reinterpret_cast<pipe0::streamEvent*>(e);
@@ -508,7 +513,7 @@ public:
             i.value().remove(aName);
     }
 protected:
-    pipePartial(const QString& aName, int aThreadNo = 0) : pipe<T>(aName, aThreadNo) {
+    pipePartial(const QString& aName, int aThreadNo = 0, bool aReplace = false) : pipe<T>(aName, aThreadNo, aReplace) {
 
     }
     void insertNext(const QString& aName, const QString& aTag) override {

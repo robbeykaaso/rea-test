@@ -14,6 +14,14 @@ signals:
     void removeJSPipe(const QString& aName);
 protected:
     void execute(const QString& aName, std::shared_ptr<rea4::stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = false) override;
+private:
+    template<typename T>
+    void doExecute(const QString& aName, std::shared_ptr<rea4::stream0> aStream, const QJsonObject& aSync, bool aFromOutside){
+        executeJSPipe(aName,  rea::Json("data", std::dynamic_pointer_cast<rea4::stream<T>>(aStream)->data(),
+                                        "tag", aStream->tag(),
+                                        "scope", aStream->scope()->toJson()),
+                      aSync, aFromOutside);
+    }
 };
 
 }
