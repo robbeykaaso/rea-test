@@ -115,8 +115,10 @@ if (typeof qt != "undefined"){
     new QWebChannel(qt.webChannelTransport, function(channel){
         context = channel.objects.context;
         PipelineJS = channel.objects.Pipeline;
+        if (!PipelineJS)
+            alert("no PipelineJS")
         PipelineJS.executeJSPipe.connect(function(aName, aStream, aSync, aFromOutside){
-            pipelines().execute(aName, new stream(aStream.data, aStream.tag, aStream.scope), aSync, aFromOutside)
+            pipelines().execute(aName, new stream(aStream.data, aStream.tag, new scopeCache(aStream.scope)), aSync, aFromOutside)
         })
         PipelineJS.removeJSPipe.connect(function(aName){
             pipelines().remove(aName)
@@ -134,6 +136,7 @@ class scopeCache {
     }
     cache(aName, aData){
         this.m_data[aName] = aData
+        return this
     }
     data(aName){
         return this.m_data[aName]
@@ -150,7 +153,9 @@ class stream {
         this.m_data = aData
         return this
     }
-    scope(){
+    scope(aNew = false){
+        if (!this.m_scope || aNew)
+            this.m_scope = new scopeCache()
         return this.m_scope
     }
     data(){
@@ -279,7 +284,7 @@ class pipe {
         const pip = pipelines().find(aName)
         if (pip)
             if (pip.m_external)
-                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data(), tag: aStream.tag(), scope: aStream.scope()}, {}, false)
+                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data(), tag: aStream.tag(), scope: aStream.scope().m_data}, {}, false)
             else
                 pip.execute(aStream)
     }
@@ -361,7 +366,7 @@ class pipeFuture extends pipe{
         let sync = {}
         if (this.m_next2.length)
             sync["next"] = this.m_next2
-        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data(), tag: aStream.tag(), scope: aStream.scope()}, sync, true)
+        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data(), tag: aStream.tag(), scope: aStream.scope().m_data}, sync, true)
     }
 }
 

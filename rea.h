@@ -25,17 +25,62 @@ class stream;
 template <typename T>
 using pipeFunc = std::function<void(stream<T>*)>;
 
-template <typename T>
+template <typename T, typename F = pipeFunc<T>>
 class pipe;
+
+template <typename T>
+class typeTrait{
+public:
+    static QString name(){
+        return "";
+    }
+};
+
+template <>
+class typeTrait<double>{
+public:
+    static QString name(){
+        return "number";
+    }
+};
+
+template <>
+class typeTrait<QString>{
+public:
+    static QString name(){
+        return "string";
+    }
+};
+
+template <>
+class typeTrait<QJsonObject>{
+public:
+    static QString name(){
+        return "object";
+    }
+};
+
+template <>
+class typeTrait<bool>{
+public:
+    static QString name(){
+        return "bool";
+    }
+};
+
+template <>
+class typeTrait<QJsonArray>{
+public:
+    static QString name(){
+        return "array";
+    }
+};
 
 class scopeCache{
 public:
-    scopeCache(){}
-    scopeCache(const QJsonObject& aData);
-    scopeCache* clear(){
-        m_data.clear();
-        return this;
+    scopeCache(){
     }
+    scopeCache(const QJsonObject& aData);
     template<typename T>
     scopeCache* cache(const QString& aName, T aData){
         m_data.insert(aName, std::make_shared<stream<T>>(aData));
@@ -43,11 +88,18 @@ public:
     }
     template<typename T>
     T data(const QString& aName){
-        return std::dynamic_pointer_cast<stream<T>>(m_data.value(aName))->data();
+        if (m_data.contains(aName))
+            return std::dynamic_pointer_cast<stream<T>>(m_data.value(aName))->data();
+        else
+            return T();
     }
     QJsonObject toJson();
+    std::shared_ptr<stream0> dataStream(const QString& aName){
+        return m_data.value(aName);
+    }
 private:
     QHash<QString, std::shared_ptr<stream0>> m_data;
+    friend stream0;
 };
 
 class stream0 : public std::enable_shared_from_this<stream0>{
@@ -68,8 +120,9 @@ public:
         return m_tag;
     }
     QString dataType(){return m_data_type;}
-    std::shared_ptr<scopeCache> scope(){
-        if (!m_scope)
+
+    std::shared_ptr<scopeCache> scope(bool aNew = false){
+        if (!m_scope || aNew)
             m_scope = std::make_shared<scopeCache>();
         return m_scope;
     }
@@ -80,14 +133,14 @@ protected:
     std::shared_ptr<std::vector<std::pair<QString, std::shared_ptr<stream0>>>> m_outs = nullptr;
     friend class pipe0;
     friend pipeline;
-    template<typename T>
+    template<typename T, typename F>
     friend class pipe;
     template <typename T>
     friend class stream;
 };
 
 class pipeFuture;
-template <typename T>
+template <typename T, typename F = pipeFunc<T>>
 class pipeDelegate;
 
 class pipe0 : public QObject{
@@ -149,7 +202,7 @@ protected:
 private:
     friend pipeFuture;
     void tryExecutePipe(const QString& aName, std::shared_ptr<stream0> aStream);
-    template<typename>
+    template<typename, typename>
     friend class pipeDelegate;
 };
 
@@ -178,10 +231,10 @@ public:
 
     virtual void remove(const QString& aName, bool aOutside = false);
 
-    template<typename T, template<typename> class P = pipe>
-    static pipe0* add(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()){
+    template<typename T, template<class, typename> class P = pipe, typename F = pipeFunc<T>, typename S = pipeFunc<T>>
+    static pipe0* add(F aFunc, const QJsonObject& aParam = QJsonObject()){
         auto nm = aParam.value("name").toString();
-        auto tmp = new P<T>(nm, aParam.value("thread").toInt(), aParam.value("replace").toBool());  //https://stackoverflow.com/questions/213761/what-are-some-uses-of-template-template-parameters
+        auto tmp = new P<T, S>(nm, aParam.value("thread").toInt(), aParam.value("replace").toBool());  //https://stackoverflow.com/questions/213761/what-are-some-uses-of-template-template-parameters
         if (nm != ""){
             auto ad = tmp->actName() + "_pipe_add";
             pipeline::call<int>(ad, 0);
@@ -222,11 +275,11 @@ public:
         instance()->execute(aName, stm);
     }
 
-    template<typename T>
+    template<typename T, typename F = pipeFunc<T>>
     static void call(const QString& aName, T aInput = T()){
         auto pip = instance()->m_pipes.value(aName);
         if (pip){
-            auto pip2 = dynamic_cast<pipe<T>*>(pip);
+            auto pip2 = dynamic_cast<pipe<T, F>*>(pip);
             auto stm = std::make_shared<stream<T>>(aInput);
             pip2->doEvent(stm);
         }
@@ -253,60 +306,11 @@ private:
     friend pipe0;
     friend pipeFuture;
     friend stream0;
-    template<typename T>
+    template<typename T, typename F>
     friend class pipe;
     template<typename T>
     friend class stream;
 };
-
-template <typename T>
-class typeTrait{
-public:
-    static QString name(){
-        return "";
-    }
-};
-
-template <>
-class typeTrait<double>{
-public:
-    static QString name(){
-        return "number";
-    }
-};
-
-template <>
-class typeTrait<QString>{
-public:
-    static QString name(){
-        return "string";
-    }
-};
-
-template <>
-class typeTrait<QJsonObject>{
-public:
-    static QString name(){
-        return "object";
-    }
-};
-
-template <>
-class typeTrait<bool>{
-public:
-    static QString name(){
-        return "bool";
-    }
-};
-
-template <>
-class typeTrait<QJsonArray>{
-public:
-    static QString name(){
-        return "array";
-    }
-};
-
 
 template <typename T>
 class stream : public stream0{
@@ -375,7 +379,7 @@ public:
         return ret; //std::dynamic_pointer_cast<stream<T>>(shared_from_this());
     }
 
-    template<typename S = T, template<typename> class P = pipe>
+    template<typename S = T, template<class, typename> class P = pipe>
     std::shared_ptr<stream<S>> asyncCall(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()){
         auto pip = pipeline::add<T, P>(aFunc, aParam);
         auto ret = asyncCall<S>(pip->actName());
@@ -384,7 +388,9 @@ public:
     }
 private:
     T m_data;
-    template <typename T>
+    template<typename T, typename F>
+    friend class funcType;
+    template <typename T, typename F>
     friend class pipeDelegate;
 };
 
@@ -393,11 +399,19 @@ pipe0* nextF0(pipe0* aPipe, pipeFunc<T> aNextFunc, const QString& aTag, const QJ
     return aPipe->next(pipeline::add<T>(aNextFunc, aParam), aTag);
 }
 
-template <typename T>
+template<typename T, typename F>
+class funcType{
+public:
+    void doEvent(F aFunc, std::shared_ptr<stream<T>> aStream){
+        aFunc(aStream.get());
+    }
+};
+
+template <typename T, typename F>
 class pipe : public pipe0{
 protected:
     pipe(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe0(aName, aThreadNo, aReplace) {}
-    virtual pipe0* initialize(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()){
+    virtual pipe0* initialize(F aFunc, const QJsonObject& aParam = QJsonObject()){
         m_func = aFunc;
         m_external = aParam.value("external").toBool();
         auto bf = aParam.value("befored").toString();
@@ -424,13 +438,13 @@ protected:
             if (m_around != "")
                 doAspect(m_around, aStream, AspectType::AspectAround);
             else
-                m_func(aStream.get());
+                funcType<T, F>().doEvent(m_func, aStream);
         }
         if (aStream->m_outs)
             doAspect(m_after, aStream, AspectType::AspectAfter);
     }
 protected:
-    pipeFunc<T> m_func;
+    F m_func;
     friend pipeline;
 private:
     bool doAspect(const QString& aName, std::shared_ptr<stream<T>> aStream, AspectType aType){
@@ -441,7 +455,7 @@ private:
         for (auto i : nms){
             auto pip = pipeline::instance()->m_pipes.value(i);
             if (pip){
-                auto pip2 = dynamic_cast<pipe<T>*>(pip);
+                auto pip2 = dynamic_cast<pipe<T, F>*>(pip);
                 pip2->doEvent(aStream);
                 if (aStream->m_outs)
                     ret = true;
@@ -451,10 +465,10 @@ private:
     }
 };
 
-template <typename T>
-class pipeAsync : public pipe<T>{
+template <typename T, typename F>
+class pipeAsync : public pipe<T, F>{
 protected:
-    pipeAsync(const QString& aName = "", int aThreadNo = 0) : pipe<T>(aName, aThreadNo){
+    pipeAsync(const QString& aName = "", int aThreadNo = 0) : pipe<T, F>(aName, aThreadNo){
 
     }
     void execute(std::shared_ptr<stream0> aStream) override{
@@ -464,8 +478,8 @@ protected:
     friend pipeline;
 };
 
-template <typename T>
-class pipeDelegate : public pipe<T>{
+template <typename T, typename F>
+class pipeDelegate : public pipe<T, F>{
 public:
     pipe0* next(pipe0* aNext, const QString& aTag = "") override{
         return pipeline::find(m_delegate)->next(aNext, aTag);
@@ -477,7 +491,7 @@ public:
         pipeline::find(m_delegate)->removeNext(aName);
     }
 protected:
-    pipeDelegate(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe<T>(aName, aThreadNo, aReplace) {}
+    pipeDelegate(const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe<T, F>(aName, aThreadNo, aReplace) {}
     bool event( QEvent* e) override{
         if(e->type()== pipe0::streamEvent::type){
             auto eve = reinterpret_cast<pipe0::streamEvent*>(e);
@@ -489,12 +503,12 @@ protected:
         }
         return true;
     }
-    pipe0* initialize(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject()) override{
+    pipe0* initialize(F aFunc, const QJsonObject& aParam = QJsonObject()) override{
         m_delegate = aParam.value("delegate").toString();
         auto del = pipeline::find(m_delegate);
         for (auto i : m_next2)
             del->insertNext(i.first, i.second);
-        return pipe<T>::initialize(aFunc, aParam);
+        return pipe<T, F>::initialize(aFunc, aParam);
     }
     void insertNext(const QString& aName, const QString& aTag) override{
         m_next2.push_back(QPair<QString, QString>(aName, aTag));
@@ -505,15 +519,15 @@ private:
     friend pipeline;
 };
 
-template <typename T>
-class pipePartial : public pipe<T> {
+template <typename T, typename F>
+class pipePartial : public pipe<T, F> {
 public:
     void removeNext(const QString& aName) override {
         for (auto i = m_next2.begin(); i != m_next2.end(); ++i)  //: for will not remove
             i.value().remove(aName);
     }
 protected:
-    pipePartial(const QString& aName, int aThreadNo = 0, bool aReplace = false) : pipe<T>(aName, aThreadNo, aReplace) {
+    pipePartial(const QString& aName, int aThreadNo = 0, bool aReplace = false) : pipe<T, F>(aName, aThreadNo, aReplace) {
 
     }
     void insertNext(const QString& aName, const QString& aTag) override {
@@ -535,7 +549,7 @@ private:
     friend pipeline;
 };
 
-template <typename T, template<typename> class P = pipe>
+template <typename T, template<class, typename> class P = pipe>
 class regPip
 {
 public:

@@ -23,7 +23,7 @@ project(REA_TEST)
 
 #add_definitions(-DEXPORTDLL)
 
-find_package(Qt5 COMPONENTS Widgets Core Quick SerialPort SerialBus WebEngineWidgets REQUIRED)
+find_package(Qt5 COMPONENTS Widgets Core Quick SerialPort SerialBus WebEngineWidgets WebEngine REQUIRED)
 set(REA_DIR ${CMAKE_CURRENT_LIST_DIR}/../frm/cmake)
 find_package(REA)
 
@@ -47,6 +47,8 @@ add_library(REA_TEST SHARED
     "rea.cpp"
     "reaJS.h"
     "reaJS.cpp"
+    "reaQML.h"
+    "reaQML.cpp"
     )
 # 创建动态库别名
 
@@ -59,6 +61,7 @@ target_link_libraries(REA_TEST PRIVATE
     Qt5::SerialPort
     Qt5::SerialBus
     Qt5::WebEngineWidgets
+    Qt5::WebEngine
     ${REA_LIBS})
 
 include_directories(${REA_INCLUDE_DIRS})

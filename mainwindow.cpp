@@ -121,11 +121,13 @@ void MainWindow::unitTest(){
     addTest(test4,
             rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
                 assert(aInput->data() == 4.0);
+                assert(aInput->scope()->data<QString>("hello") == "world");
                 aInput->setData(aInput->data() + 1)->out();
             }, rea::Json("name", "test4_", "external", true));
 
             rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
                 assert(aInput->data() == 5.0);
+                aInput->scope(true)->cache<QString>("hello2", "world");
                 aInput->setData(aInput->data() + 1)->out();
             }, rea::Json("name", "test4__", "external", true));
         )
@@ -139,12 +141,15 @@ void MainWindow::unitTest(){
     rea4::m_tests.insert("test6",[](){
         rea4::pipeline::find("test6__")->removeNext("test_6");
         rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+            aInput->scope()->cache<QString>("hello", "world");
             aInput->out();
         }, rea::Json("name", "test6"))
             ->next("test6_")
             ->next("test6__")
             ->next<double>([](rea4::stream<double>* aInput){
                 assert(aInput->data() == 6.0);
+                assert(aInput->scope()->data<QString>("hello") == "");
+                assert(aInput->scope()->data<QString>("hello2") == "world");
                 aInput->outs<QString>("Pass: test6", "testSuccess");
             }, "", rea::Json("name", "test_6"));
 

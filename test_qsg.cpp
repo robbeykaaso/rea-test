@@ -24,6 +24,8 @@ static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
                                                "size", rea::JArray(100, 50),
                                                "location", "bottom"),
                              "color", "blue",
+                             "max_ratio", 100,
+                             "min_ratio", 0.01,
                              "objects", rea::Json(
                                             "img_2", rea::Json(
                                                          "type", "image",

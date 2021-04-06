@@ -83,12 +83,15 @@ function test4(){
     pipelines().find("test4__").removeNext("test_4")
 
     pipelines().add(function(aInput){
+        aInput.scope().cache("hello", "world")
         aInput.out()
     }, {name: "test4"})
     .next("test4_")
     .next("test4__")
     .nextF(function(aInput){  //test4__next
         console.assert(aInput.data() == 6)
+        console.assert(aInput.scope().data("hello") == null)
+        console.assert(aInput.scope().data("hello2") == "world")
         aInput.outs("Pass: test4", "testSuccessJS")
     }, "", {name: "test_4"})
 
@@ -111,11 +114,13 @@ function test5(){
 function test6(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 4)
+        console.assert(aInput.scope().data("hello") == "world")
         aInput.setData(aInput.data() + 1).out()
     }, {name: "test6_", external: true})
 
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 5)
+        aInput.scope(true).cache("hello2", "world");
         aInput.setData(aInput.data() + 1).out()
     }, {name: "test6__", external: true})
 
@@ -305,7 +310,7 @@ function onBtnSendMsg()
     pipelines().run("unitTest")
     //var cmd = document.getElementById("待发送消息").value;
     sendMessage({
-                    [test6()]: 1, //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++
+                    [test6()]: 1, //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++ ; scopeCache
                     [test7()]: 1, //test pipe mixture: c++.future(js)->c++
                     [test8()]: 1, //test pipe mixture: c++.future(js)
                     [test11()]: 1, //test c++ anonymous next
@@ -342,7 +347,7 @@ function unitTest(){
             [test1, 1], //test js anonymous next
             [test2, 1], //test js specific next
             [test3, 3], //test js pipe future
-            [test4, 1], //test pipe mixture: js->js.future(c++)->js.future(c++)->js
+            [test4, 1], //test pipe mixture: js->js.future(c++)->js.future(c++)->js ; scopeCache
             [test5, 1], //test pipe mixture: js.future(c++)->js
             [test9, 1], //test pipe mixture: js.future(c++)
             [test15, 1], //test js pipe partial

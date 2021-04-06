@@ -4,7 +4,8 @@ import QtQuick.Controls 1.4
 import QtQuick.Controls 2.5
 import QtQuick.Layouts 1.12
 import QtQuick.Controls.Universal 2.3
-//import QtWebEngine 1.8
+import QtWebEngine 1.8
+import QtWebChannel 1.0
 import "qml/gui/Basic"
 import "qml/gui/Pipe"
 import "qml/gui/Pipe/TreeNodeView"
@@ -558,9 +559,12 @@ ApplicationWindow {
                         nest.show()
                 }
                 MenuItem{
-                    text: "web"
+                    text: "webwidget"
                     onClicked: Pipeline.run("openWebWindow", 0)
-                        //web.show()
+                }
+                MenuItem{
+                    text: "web"
+                    onClicked: web.show()
                 }
             }
 
@@ -1218,15 +1222,39 @@ ApplicationWindow {
         ]
     }
 
-    /*TWindow{
+    TWindow{
         id: web
         caption: "webview"
         content: WebEngineView {
             anchors.fill: parent
             id: webview
-            url: "https://www.baidu.com"
+            url: "file:/html/test.html"
+            //url: "https://www.baidu.com"
+            z: - 1
+            Row{
+                anchors.fill: parent
+                spacing: width * 0.2
+                z: 1
+                Rectangle{
+                    width: parent.width * 0.2
+                    height: parent.height
+                    color: "red"
+                    z: 1
+                }
+                Rectangle{
+                    width: parent.width * 0.2
+                    height: parent.height
+                    color: "blue"
+                }
+            }
+            /*webChannel: WebChannel{
+                id: tmp
+                Component.onCompleted: {
+                    //tmp.registerObject()
+                }
+            }*/
         }
-    }*/
+    }
 
     TWindow{
         id: treeview0
