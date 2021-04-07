@@ -141,7 +141,7 @@ public:
     void doEvent(QJSValue aFunc, std::shared_ptr<stream<T>> aStream){
         if (qml_engine && !aFunc.equals(QJsonValue::Null)){
             QJSValueList paramList;
-            qmlStream stm(qml_engine->toScriptValue(aStream->data()), aStream->tag(), aStream->m_scope);
+            qmlStream stm(qml_engine->toScriptValue(aStream->QData()), aStream->tag(), aStream->m_scope);
             paramList.append(qml_engine->toScriptValue(QVariant::fromValue<QObject*>(&stm)));
             aFunc.call(paramList);
             aStream->setData(valType<T>::data(stm.data()));
