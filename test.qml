@@ -11,6 +11,7 @@ import "qml/gui/Pipe"
 import "qml/gui/Pipe/TreeNodeView"
 import Pipeline 1.0
 import QSGBoard 1.0
+import Pipeline2 1.0
 
 ApplicationWindow {
     width: 800
@@ -117,6 +118,11 @@ ApplicationWindow {
                 onClicked: Pipeline.run("logTransaction", 1, "", false)
             }
             Component.onCompleted: {
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data()["test28"] === "test28")
+                    aInput.outs(aInput.data(), "test28_0")
+                }, {name: "test28_"})
+
                 Pipeline.add(function(aInput){
                     console.assert(aInput.data()["test8"] === "test8")
                     console.assert(aInput.varData("test8_var", "string") === "test8_var")
@@ -1228,7 +1234,7 @@ ApplicationWindow {
         content: WebEngineView {
             anchors.fill: parent
             id: webview
-            url: "file:/html/test.html"
+            //url: "file:/html/test.html"
             //url: "https://www.baidu.com"
             z: - 1
             Row{
@@ -1247,12 +1253,14 @@ ApplicationWindow {
                     color: "blue"
                 }
             }
-            /*webChannel: WebChannel{
-                id: tmp
+            webChannel: WebChannel{
+                id: webview_chn
                 Component.onCompleted: {
-                    //tmp.registerObject()
+                    var stm = Pipeline2.asyncCall("regPipelineJS", 0)
+                    webview_chn.registerObject("Pipeline", stm.scope().data("pipeline"))
+                    webview.url = "file:/html/test.html"
                 }
-            }*/
+            }
         }
     }
 

@@ -32,6 +32,17 @@ void test(const QString& aName){
 
 }
 
+template <>
+class rea4::typeTrait<JsContext*> : public typeTrait0{
+public:
+    QString name() override{
+        return "jsContext";
+    }
+    QVariant QData(stream0* aStream) override{
+        return QVariant::fromValue<QObject*>(reinterpret_cast<stream<JsContext*>*>(aStream)->data());
+    }
+};
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
@@ -62,20 +73,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
 
     m_jsContext = new JsContext();
     m_webChannel = new QWebChannel();
-    m_webChannel->registerObject("context", m_jsContext);
     m_webChannel->registerObject("Pipeline", rea4::pipeline::instance("js"));
     m_webView->page()->setWebChannel(m_webChannel);
-    connect(m_jsContext, &JsContext::recvdMsg, this, [this](const QJsonObject& msg) {
-        for (auto i : msg.keys())
-            test_sum += msg.value(i).toInt();
-        for (auto i : msg.keys())
-            rea4::test(i);
-        auto sw = "Received message: hello";
+    connect(m_jsContext, &JsContext::recvdMsg, this, [this](const QString& msg) {
+        rea4::pipeline::run<QString>("testSuccess", "Pass: test29");
+        auto sw = "Received message: " + msg;
         ui->statusBar->showMessage(sw);
     });
     m_webView->setUrl(QUrl("file:/html/test.html"));
 
-
+    rea4::pipeline::instance()->supportType<JsContext*>();
     unitTest();
 }
 
@@ -98,6 +105,16 @@ private:
 };
 
 void MainWindow::unitTest(){
+    rea4::pipeline::add<QJsonObject>([this](rea4::stream<QJsonObject>* aInput){
+        auto dt = aInput->data();
+        for (auto i : dt.keys())
+            test_sum += dt.value(i).toInt();
+        for (auto i : dt.keys())
+            rea4::test(i);
+        auto sw = "Received message: hello";
+        ui->statusBar->showMessage(sw);
+    }, rea::Json("name", "unitTestC++", "external", true));
+
     rea4::pipeline::add<QString>([](rea4::stream<QString>* aInput){
         test_pass++;
         std::cout << QString("Success: %1 (%2/%3)")
@@ -395,6 +412,28 @@ void MainWindow::unitTest(){
             ->asyncCall("testSuccess");
     });
 
+    rea4::m_tests.insert("test28", [](){
+        rea4::pipeline::add<QJsonObject>([](rea4::stream<QJsonObject>* aInput){
+            aInput->scope()->cache<QString>("test28", "test28");
+            aInput->out();
+        }, rea::Json("name", "test28"))->next("test28_");
+
+        rea4::pipeline::add<QJsonObject>([](rea4::stream<QJsonObject>* aInput){
+            assert(aInput->data().value("test28") == "test28");
+           // assert(aInput->scope()->data<QString>("test28") == "test28_");
+            aInput->outs<QString>("Pass: test28", "testSuccess");
+        }, rea::Json("name", "test28_0"))
+            ->next("testSuccess");
+
+        rea4::pipeline::run("test28", rea::Json("test28", "test28"));
+    });
+
+    rea4::m_tests.insert("test29", [this](){
+        auto sp = std::make_shared<rea4::scopeCache>();
+        sp->cache<JsContext*>("ctx", m_jsContext);
+        rea4::pipeline::run<JsContext*>("test29", m_jsContext, "", sp);
+    });
+
     rea4::test("test4");
     rea4::test("test5");
     rea4::test("test9");
@@ -408,6 +447,10 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+void MainWindow::initialize(){
+    rea4::pipeline::run<QQmlApplicationEngine*>("install0_QML", m_qml_engine);
+}
+
 JsContext::JsContext(QObject*){
 
 }
@@ -418,8 +461,8 @@ void JsContext::sendMsg(QWebEnginePage* page, const QString& msg){
 
 void JsContext::onMsg(const QJsonValue &msg)
 {
-    if (msg.isObject())
-        emit recvdMsg(msg.toObject());
+    if (msg.isString())
+        emit recvdMsg(msg.toString());
 }
 
 /*static rea::regPip<QQmlApplicationEngine*> reg_web([](rea::stream<QQmlApplicationEngine*>* aInput){

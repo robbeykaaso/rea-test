@@ -304,28 +304,25 @@ function test27(){
     return "test27"
 }
 
+function test28(){
+    return "test28"
+}
+
+function test29(){
+    pipelines().add(function(aInput){
+        context = aInput.data()
+        console.assert(aInput.scope().data("ctx") == context)
+        sendMessage("lala")
+    }, {name: "test29", external: true})
+
+    return "test29"
+}
+
 // 控件控制函数
 function onBtnSendMsg()
 {
     pipelines().run("unitTest")
     //var cmd = document.getElementById("待发送消息").value;
-    sendMessage({
-                    [test6()]: 1, //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++ ; scopeCache
-                    [test7()]: 1, //test pipe mixture: c++.future(js)->c++
-                    [test8()]: 1, //test pipe mixture: c++.future(js)
-                    [test11()]: 1, //test c++ anonymous next
-                    [test12()]: 1, //test c++ specific next
-                    [test13()]: 3, //test c++ pipe future
-                    [test14()]: 1,//test c++ pipe future
-                    [test16()]: 1, //test pipe mixture partial: c++.future(js)->c++
-                    [test18()]: 1, //test c++ pipe delegate and pipe param
-                    [test20()]: 1, //test pipe mixture delegate: c++->c++.future(js)->js, c++
-                    [test21_()]: 1,  //test pipe mixture delegate: js->js.future(c++)->c++, js
-                    [test22()]: 1, //test c++ asyncCall
-                    [test25()]: 1, //test pipe mixture: c++.asyncCall.js
-                    [test26()]: 1, //test c++ aop and keep topo
-                    [test27()]: 1 //test c++ functor
-                });
 }
 
 function unitTest(){
@@ -362,5 +359,26 @@ function unitTest(){
             test_sum += test[i][1]
         for (let i in test)
             test[i][0]()
+
+        aInput.setData({
+            [test6()]: 1, //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++ ; scopeCache
+            [test7()]: 1, //test pipe mixture: c++.future(js)->c++
+            [test8()]: 1, //test pipe mixture: c++.future(js)
+            [test11()]: 1, //test c++ anonymous next
+            [test12()]: 1, //test c++ specific next
+            [test13()]: 3, //test c++ pipe future
+            [test14()]: 1, //test c++ pipe future
+            [test16()]: 1, //test pipe mixture partial: c++.future(js)->c++
+            [test18()]: 1, //test c++ pipe delegate and pipe param
+            [test20()]: 1, //test pipe mixture delegate: c++->c++.future(js)->js, c++
+            [test21_()]: 1,  //test pipe mixture delegate: js->js.future(c++)->c++, js
+            [test22()]: 1, //test c++ asyncCall
+            [test25()]: 1, //test pipe mixture: c++.asyncCall.js
+            [test26()]: 1, //test c++ aop and keep topo
+            [test27()]: 1, //test c++ functor
+            [test28()]: 1, //test pipe qml
+            [test29()]: 1  //test rea-js arbitrary type
+                    }).out()
     }, {name: "unitTest"})
+    .next("unitTestC++")
 }

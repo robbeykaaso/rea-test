@@ -23,20 +23,11 @@ scopeCache::scopeCache(const QJsonObject& aData){
     }
 }
 
-QJsonObject scopeCache::toJson(){
-    QJsonObject ret;
+QVariantList scopeCache::toList(){
+    QVariantList ret;
     for (auto i : m_data.keys()){
-        auto dt = m_data.value(i);
-        if (dt->dataType() == "object")
-            ret.insert(i, std::dynamic_pointer_cast<stream<QJsonObject>>(dt)->data());
-        else if (dt->dataType() == "array")
-            ret.insert(i, std::dynamic_pointer_cast<stream<QJsonArray>>(dt)->data());
-        else if (dt->dataType() == "bool")
-            ret.insert(i, std::dynamic_pointer_cast<stream<bool>>(dt)->data());
-        else if (dt->dataType() == "string")
-            ret.insert(i, std::dynamic_pointer_cast<stream<QString>>(dt)->data());
-        else if (dt->dataType() == "number")
-            ret.insert(i, std::dynamic_pointer_cast<stream<double>>(dt)->data());
+        ret.push_back(i);
+        ret.push_back(m_data.value(i)->QData());
     }
     return ret;
 }
@@ -303,7 +294,11 @@ pipeline* pipeline::instance(const QString& aName){
 }
 
 pipeline::pipeline(){
-
+    supportType<QString>();
+    supportType<QJsonObject>();
+    supportType<QJsonArray>();
+    supportType<double>();
+    supportType<bool>();
 }
 
 pipeline::~pipeline(){

@@ -113,12 +113,15 @@ var PipelineJS
 
 if (typeof qt != "undefined"){
     new QWebChannel(qt.webChannelTransport, function(channel){
-        context = channel.objects.context;
         PipelineJS = channel.objects.Pipeline;
         if (!PipelineJS)
             alert("no PipelineJS")
-        PipelineJS.executeJSPipe.connect(function(aName, aStream, aSync, aFromOutside){
-            pipelines().execute(aName, new stream(aStream.data, aStream.tag, new scopeCache(aStream.scope)), aSync, aFromOutside)
+        PipelineJS.executeJSPipe.connect(function(aName, aData, aTag, aScope, aSync, aFromOutside){
+            const len = Object.keys(aScope).length
+            let sp = {}
+            for (let i = 0; i < len; i += 2)
+                sp[aScope[i]] = aScope[i + 1]
+            pipelines().execute(aName, new stream(aData, aTag, new scopeCache(sp)), aSync, aFromOutside)
         })
         PipelineJS.removeJSPipe.connect(function(aName){
             pipelines().remove(aName)
@@ -284,7 +287,7 @@ class pipe {
         const pip = pipelines().find(aName)
         if (pip)
             if (pip.m_external)
-                PipelineJS.tryExecuteOutsidePipe(aName, {data: aStream.data(), tag: aStream.tag(), scope: aStream.scope().m_data}, {}, false)
+                PipelineJS.tryExecuteOutsidePipe(aName, aStream.data(), aStream.tag(), aStream.scope().m_data, {}, false)
             else
                 pip.execute(aStream)
     }
@@ -366,7 +369,7 @@ class pipeFuture extends pipe{
         let sync = {}
         if (this.m_next2.length)
             sync["next"] = this.m_next2
-        PipelineJS.tryExecuteOutsidePipe(this.actName(), {data: aStream.data(), tag: aStream.tag(), scope: aStream.scope().m_data}, sync, true)
+        PipelineJS.tryExecuteOutsidePipe(this.actName(), aStream.data(), aStream.tag(), aStream.scope().m_data, sync, true)
     }
 }
 

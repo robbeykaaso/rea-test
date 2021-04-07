@@ -1,4 +1,5 @@
 #include "reaQML.h"
+#include "reaJS.h"
 #include <QFile>
 #include <QJsonDocument>
 
@@ -27,7 +28,8 @@ QVariant qmlScopeCache::cache(const QString& aName, QJSValue aData){
 }
 
 QJSValue qmlScopeCache::data(const QString& aName){
-    auto dt = m_scope->dataStream(aName);
+    return qml_engine->toScriptValue(m_scope->dataStream(aName)->QData());
+    /*auto dt = m_scope->dataStream(aName);
     if (dt->dataType() == "object")
         qml_engine->toScriptValue(std::dynamic_pointer_cast<stream<QJsonObject>>(dt)->data());
     else if (dt->dataType() == "array")
@@ -40,10 +42,10 @@ QJSValue qmlScopeCache::data(const QString& aName){
         qml_engine->toScriptValue(std::dynamic_pointer_cast<stream<double>>(dt)->data());
     else
         qFatal("Invalid data type in qmlScopeCache");
-    return QJSValue();
+    return QJSValue();*/
 }
 
-QVariant qmlScopeCache::scope(bool aNew){
+QVariant qmlStream::scope(bool aNew){
     if (!m_scope || aNew)
         m_scope = std::make_shared<scopeCache>();
     return QVariant::fromValue<QObject*>(new qmlScopeCache(m_scope));
@@ -206,6 +208,17 @@ QVariant pipelineQML::find(const QString& aName){
 static bool m_language_updated;
 static QJsonObject translates;
 
+template <>
+class rea4::typeTrait<pipelineJS*> : public typeTrait0{
+public:
+    QString name() override{
+        return "jsPipeline";
+    }
+    QVariant QData(stream0* aStream) override{
+        return QVariant::fromValue<QObject*>(reinterpret_cast<stream<pipelineJS*>*>(aStream)->data());
+    }
+};
+
 pipelineQML::pipelineQML(){
     m_language_updated = false;
     QFile fl(".language");
@@ -213,6 +226,12 @@ pipelineQML::pipelineQML(){
         translates = QJsonDocument::fromJson(fl.readAll()).object();
         fl.close();
     }
+
+    pipeline::instance()->supportType<pipelineJS*>();
+    rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+        auto pip_js = reinterpret_cast<rea4::pipelineJS*>(rea4::pipeline::instance("js"));
+        aInput->out()->scope()->cache<pipelineJS*>("pipeline", pip_js);
+    }, rea::Json("name", "regPipelineJS"));
 }
 
 pipelineQML::~pipelineQML(){
@@ -238,8 +257,8 @@ QVariant pipelineQML::tr(const QString& aOrigin){
     return tr0(aOrigin);
 }
 
-#define regCreateJSPipe(Name) \
-static regPip<std::shared_ptr<ICreateQMLPipe>> reg_createJSPipe_##Name([](stream<std::shared_ptr<ICreateQMLPipe>>* aInput){ \
+#define regCreateQMLPipe(Name) \
+static regPip<std::shared_ptr<ICreateQMLPipe>> reg_createQMLPipe_##Name([](stream<std::shared_ptr<ICreateQMLPipe>>* aInput){ \
     auto dt = aInput->data(); \
     auto prm = dt->param; \
     auto tp = prm.value("vtype").toString("object"); \
@@ -255,16 +274,16 @@ static regPip<std::shared_ptr<ICreateQMLPipe>> reg_createJSPipe_##Name([](stream
         dt->param.insert("actname", pipeline::add<QJsonArray, pipe##Name, QJSValue, QJSValue>(dt->func, prm)->actName()); \
     else \
         assert(0); \
-}, rea::Json("name", STR(createJSPipe_##Name)));
+}, rea::Json("name", STR(createQMLPipe_##Name)));
 
-regCreateJSPipe(Partial)
-regCreateJSPipe(Delegate)
-regCreateJSPipe()
+regCreateQMLPipe(Partial)
+regCreateQMLPipe(Delegate)
+regCreateQMLPipe()
 
 static regPip<QQmlApplicationEngine*> reg_recative2_qml([](stream<QQmlApplicationEngine*>* aInput){
     //ref from: https://stackoverflow.com/questions/25403363/how-to-implement-a-singleton-provider-for-qmlregistersingletontype
     qml_engine = aInput->data();
-    qmlRegisterSingletonType<pipelineQML>("Pipeline", 1, 0, "Pipeline", &pipelineQML::qmlInstance);
+    qmlRegisterSingletonType<pipelineQML>("Pipeline2", 1, 0, "Pipeline2", &pipelineQML::qmlInstance);
     aInput->out();
 }, rea::Json("name", "install0_QML"), "regQML");
 

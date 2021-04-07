@@ -13,7 +13,6 @@ public:
     qmlScopeCache(std::shared_ptr<scopeCache> aScope);
     Q_INVOKABLE QVariant cache(const QString& aName, QJSValue aData);
     Q_INVOKABLE QJSValue data(const QString& aName);
-    Q_INVOKABLE QVariant scope(bool aNew = false);
 private:
     std::shared_ptr<scopeCache> m_scope;
 };
@@ -27,6 +26,7 @@ public:
         m_tag = aTag;
         m_scope = aScope;
     }
+    Q_INVOKABLE QVariant scope(bool aNew = false);
     Q_INVOKABLE QVariant setData(QJSValue aData){
         m_data = aData;
         return QVariant::fromValue<QObject*>(this);
@@ -67,6 +67,7 @@ private:
         bool timeout = false;
         auto monitor = pipeline::find(aName)->next<S>([&loop, &timeout, this](stream<S>* aInput){
             m_data = qml_engine->toScriptValue(aInput->data());
+            m_scope = aInput->scope();
             if (loop.isRunning()){
                 loop.quit();
             }else

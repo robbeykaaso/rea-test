@@ -23,8 +23,7 @@ public:
     explicit JsContext(QObject *parent = nullptr);
 
 signals:
-    void recvdMsg(const QJsonObject& msg);
-
+    void recvdMsg(const QString& msg);
 public:
     // 向页面发送消息
     void sendMsg(QWebEnginePage* page, const QString& msg);
@@ -41,6 +40,8 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    QQmlApplicationEngine* m_qml_engine;
+    void initialize();
 private:
     void unitTest();
     JsContext* m_jsContext;
