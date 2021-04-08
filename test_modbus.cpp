@@ -27,7 +27,7 @@ static rea::regPip<QJsonObject> test_modbus([](rea::stream<QJsonObject>* aInput)
                }), "testModBus")
         ->next("testSuccess");
 
-    rea::pipeline::run<QJsonObject>("callSlave", rea::Json("func", QModbusRequest::FunctionCode::ReadCoils,
+    rea::pipeline::instance()->run<QJsonObject>("callSlave", rea::Json("func", QModbusRequest::FunctionCode::ReadCoils,
                                                            "payload", "00000001"), "testModBus");
 
     aInput->out();

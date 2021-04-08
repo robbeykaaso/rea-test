@@ -94,7 +94,7 @@ static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
             std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 50));
             //rea::imagePool::cacheImage(pth, img);
             rea::imagePool::cacheImage(pth, img2.scaled(600, 400));
-            rea::pipeline::run<QJsonObject>("updateQSGModel_testbrd", cfg);
+            rea::pipeline::instance()->run<QJsonObject>("updateQSGModel_testbrd", cfg);
         }
         std::cout << "cost: " << QDateTime::currentDateTime().toMSecsSinceEpoch() - tm0 << std::endl;
     }, rea::Json("name", "testFPS", "thread", 5));

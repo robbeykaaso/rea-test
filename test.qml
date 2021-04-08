@@ -569,7 +569,7 @@ ApplicationWindow {
                     onClicked: Pipeline.run("openWebWindow", 0)
                 }
                 MenuItem{
-                    text: "web"
+                    text: "webqml"
                     onClicked: web.show()
                 }
             }
@@ -1255,11 +1255,11 @@ ApplicationWindow {
             }
             webChannel: WebChannel{
                 id: webview_chn
-                Component.onCompleted: {
-                  /*  var stm = Pipeline2.asyncCall("regPipelineJS", 0)
+               /* Component.onCompleted: {
+                    var stm = Pipeline2.asyncCall("pipelineJSObject", 0)
                     webview_chn.registerObject("Pipeline", stm.scope().data("pipeline"))
-                    webview.url = "file:/html/test.html"*/
-                }
+                    webview.url = "file:/html/test.html"
+                }*/
             }
         }
     }

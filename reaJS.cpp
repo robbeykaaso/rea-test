@@ -2,6 +2,25 @@
 
 namespace rea4 {
 
+template <>
+class rea4::typeTrait<pipelineJS*> : public typeTrait0{
+public:
+    QString name() override{
+        return "jsPipeline";
+    }
+    QVariant QData(stream0* aStream) override{
+        return QVariant::fromValue<QObject*>(reinterpret_cast<stream<pipelineJS*>*>(aStream)->data());
+    }
+};
+
+pipelineJS::pipelineJS() : pipeline("js"){
+    pipeline::instance()->supportType<pipelineJS*>();
+    rea4::pipeline::add<double>([](rea4::stream<double>* aInput){
+        auto pip_js = reinterpret_cast<rea4::pipelineJS*>(rea4::pipeline::instance("js"));
+        aInput->out()->scope()->cache<pipelineJS*>("pipeline", pip_js);
+    }, rea::Json("name", "pipelineJSObject"));
+};
+
 void pipelineJS::execute(const QString& aName, std::shared_ptr<rea4::stream0> aStream, const QJsonObject& aSync, bool aFromOutside){
     if (aStream->dataType() == "")
         throw "not supported type";
@@ -32,6 +51,10 @@ void pipelineJS::removePipeOutside(const QString& aName){
 void pipelineJS::remove(const QString& aName, bool){
     removeJSPipe(aName);
 }
+
+static regPip<std::shared_ptr<pipeline*>> reg_create_jspipeline([](stream<std::shared_ptr<pipeline*>>* aInput){
+    *aInput->data() = new pipelineJS();
+}, rea::Json("name", "createjspipeline"));
 
 }
 

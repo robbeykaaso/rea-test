@@ -28,9 +28,7 @@ Inspector::~Inspector()
 }
 
 static rea::regPip<QQmlApplicationEngine*> reg_web([](rea::stream<QQmlApplicationEngine*>* aInput){
-    static MainWindow wd;
-    wd.m_qml_engine = aInput->data();
-    wd.initialize();
+    static MainWindow wd(aInput->data());
     rea::pipeline::add<double>([](rea::stream<double>* aInput){
         wd.show();
     }, rea::Json("name", "openWebWindow"));

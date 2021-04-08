@@ -14,7 +14,7 @@ void test1(){
         }))
         ->next("testSuccess");
 
-    pipeline::run("test1", 3);
+    pipeline::instance()->run("test1", 3);
 }
 
 void test2(){
@@ -32,7 +32,7 @@ void test2(){
         }, Json("name", "test2_0", "thread", 2)))
         ->next("testSuccess");
 
-    pipeline::run("test2", 4);
+    pipeline::instance()->run("test2", 4);
 }
 
 static rea::regPip<QJsonObject> reg_test3([](rea::stream<QJsonObject>* aInput){
@@ -70,8 +70,8 @@ void test3(){
         aInput->outs<QString>("Pass: test3_", "test3__");
     }, Json("name", "test3_0"));
 
-    pipeline::run<int>("test3", 66);
-    pipeline::run<QString>("test3_1", "Pass: test3__");
+    pipeline::instance()->run<int>("test3", 66);
+    pipeline::instance()->run<QString>("test3_1", "Pass: test3__");
 }
 
 void test4(){
@@ -95,7 +95,7 @@ void test4(){
     }, Json("name", "test4_0"))
         ->next("testFail");
 
-    pipeline::run("test4", 56);
+    pipeline::instance()->run("test4", 56);
 
     pipeline::add<QJsonObject>([](stream<QJsonObject>* aInput){
         assert(aInput->data().value("56") == "56");
@@ -104,7 +104,7 @@ void test4(){
         //->next("test4_1");
         ->next(local("test4_1"))
         ->next(local("testSuccess"));
-    pipeline::run("test4_", Json("56", "56"));
+    pipeline::instance()->run("test4_", Json("56", "56"));
 }
 
 void test5(){
@@ -119,8 +119,8 @@ void test5(){
         aInput->outs<QString>("Pass: test5", "testSuccess");
     }, Json("name", "test5"));
 
-    pipeline::run("test5_0", 66);
-    pipeline::run("test5", 56, "", false);
+    pipeline::instance()->run("test5_0", 66);
+    pipeline::instance()->run("test5", 56, "", false);
 }
 
 void test6(){
@@ -142,7 +142,7 @@ void test6(){
                }), "service2")
         ->next("testFail");
 
-    pipeline::run("test6", 66, "service1");
+    pipeline::instance()->run("test6", 66, "service1");
 }
 
 void test7(){
@@ -159,8 +159,8 @@ void test7(){
             aInput->outs<QString>("Pass: test7", "testSuccess");
         }))
         ->next("testSuccess");
-    pipeline::run<int>("test7", 0);
-    pipeline::run<QJsonObject>("test7_", QJsonObject());
+    pipeline::instance()->run<int>("test7", 0);
+    pipeline::instance()->run<QJsonObject>("test7_", QJsonObject());
 }
 
 void test8(){
@@ -176,7 +176,7 @@ void test8(){
     }, Json("name", "test8_0"))
         ->next("testSuccess");
 
-    pipeline::run("test8", Json("test8", "test8"));
+    pipeline::instance()->run("test8", Json("test8", "test8"));
 }
 
 void test9(){
@@ -205,7 +205,7 @@ void test9(){
                 aInput->outs<QString>("Pass: test9", "testSuccess");
             }
         });
-    rea::pipeline::run<double>("test9", 0);
+    rea::pipeline::instance()->run<double>("test9", 0);
 }
 
 void test10(){
@@ -225,7 +225,7 @@ void test10(){
                 aInput->outs<QString>("Pass: test10", "testSuccess");
             }
         }, "", rea::Json("thread", 6));
-    rea::pipeline::run<double>("test10", 0);
+    rea::pipeline::instance()->run<double>("test10", 0);
 }
 
 void test11(){
@@ -259,11 +259,11 @@ void test11(){
         aInput->outs<QString>("Pass: test11", "testSuccess");
     }, rea::Json("name", "test11__", "after", "test11_"));
 
-    rea::pipeline::run<double>("test11", 1);
+    rea::pipeline::instance()->run<double>("test11", 1);
 }
 
 void test12(){
-    rea::pipeline::input<int>(0, "test12")
+    rea::pipeline::instance()->input<int>(0, "test12")
         ->call<int>([](rea::stream<int>* aInput){
             aInput->setData(aInput->data() + 1)->out();
         }, rea::Json("thread", 1))
@@ -299,7 +299,7 @@ private:
 void test13(){
     auto tmp = foo(6);
     rea::pipeline::add<int>(foo(2));
-    rea::pipeline::input<int>(3)
+    rea::pipeline::instance()->input<int>(3)
         ->call<int>(foo(2))
         ->call<int>(std::bind1st(std::mem_fun(&foo::memberFoo), &tmp))
         ->call<QString>([](rea::stream<int>* aInput){

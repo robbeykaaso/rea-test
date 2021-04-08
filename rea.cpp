@@ -32,16 +32,17 @@ QVariantList scopeCache::toList(){
     return ret;
 }
 
-pipe0::pipe0(const QString& aName, int aThreadNo, bool aReplace){
+pipe0::pipe0(pipeline* aParent, const QString& aName, int aThreadNo, bool aReplace){
+    m_parent = aParent;
     if (aName == "")
         m_name = rea::generateUUID();
     else
         m_name = aName;
     if (aThreadNo != 0){
-        m_thread = pipeline::instance()->findThread(aThreadNo);
+        m_thread = m_parent->findThread(aThreadNo);
         moveToThread(m_thread);
     }
-    auto old = pipeline::find(m_name, false);
+    auto old = m_parent->find(m_name, false);
     if (old){
         if (aReplace){
             m_next = old->m_next;
@@ -49,9 +50,9 @@ pipe0::pipe0(const QString& aName, int aThreadNo, bool aReplace){
             m_around = old->m_around;
             m_after = old->m_after;
         }
-        pipeline::instance()->remove(m_name);
+        m_parent->remove(m_name);
     }
-    pipeline::instance()->m_pipes.insert(m_name, this);
+    m_parent->m_pipes.insert(m_name, this);
 }
 
 void pipe0::resetTopo(){
@@ -74,7 +75,7 @@ pipe0* pipe0::next(const QString& aName, const QString& aTag){
     auto tags = aTag.split(";");
     for (auto i : tags)
         insertNext(aName, i);
-    auto nxt = pipeline::find(aName);
+    auto nxt = m_parent->find(aName);
     return nxt;
 }
 
@@ -114,10 +115,10 @@ pipe0* pipe0::nextB(const QString& aName, const QString& aTag){
 }
 
 void pipe0::tryExecutePipe(const QString& aName, std::shared_ptr<stream0> aStream){
-    auto pip = pipeline::find(aName);
+    auto pip = m_parent->find(aName);
     if (pip){
         if (pip->m_external)
-            pipeline::instance()->tryExecutePipeOutside(pip->actName(), aStream, QJsonObject(), false);
+            m_parent->tryExecutePipeOutside(pip->actName(), aStream, QJsonObject(), false);
         else
             pip->execute(aStream);
     }
@@ -168,7 +169,7 @@ void pipeFuture::insertNext(const QString& aName, const QString& aTag){
 
 class pipeFuture0 : public pipe0 {  //the next of pipePartial may be the same name but not the same previous
 public:
-    pipeFuture0(const QString& aName) : pipe0(aName){
+    pipeFuture0(pipeline* aParent, const QString& aName) : pipe0(aParent, aName){
     }
 protected:
     void insertNext(const QString& aName, const QString& aTag) override{
@@ -218,7 +219,7 @@ void pipeFuture::execute(std::shared_ptr<stream0> aStream){
         sync.insert("around", m_around);
     if (m_after != "")
         sync.insert("after", m_after);
-    pipeline::instance()->tryExecutePipeOutside(actName(), aStream, sync);
+    m_parent->tryExecutePipeOutside(actName(), aStream, sync);
 }
 
 void pipeFuture::removeNext(const QString& aName){
@@ -227,43 +228,43 @@ void pipeFuture::removeNext(const QString& aName){
             m_next2.remove(i);
 }
 
-pipeFuture::pipeFuture(const QString& aName) : pipe0 (){
+pipeFuture::pipeFuture(pipeline* aParent, const QString& aName) : pipe0 (aParent){
     m_act_name = aName;
 
-    if (pipeline::find(aName + "_pipe_add", false)){  //there will be another pipeFuture before, this future should inherit its records before it is removed
-        auto pip = new pipeFuture0(aName);
-        pipeline::call<int>(aName + "_pipe_add", 0);
+    if (m_parent->find(aName + "_pipe_add", false)){  //there will be another pipeFuture before, this future should inherit its records before it is removed
+        auto pip = new pipeFuture0(m_parent, aName);
+        m_parent->call<int>(aName + "_pipe_add", 0);
         for (auto i : pip->m_next2)
             insertNext(i.first, i.second);
         m_external = pip->m_external;
         setAspect(m_before, pip->m_before);
         setAspect(m_around, pip->m_around);
         setAspect(m_after, pip->m_after);
-        pipeline::instance()->remove(aName);
+        m_parent->remove(aName);
     }
-    pipeline::add<int>([this, aName](const stream<int>* aInput){
-        auto this_event = pipeline::find(aName, false);
+    m_parent->add<int>([this, aName](const stream<int>* aInput){
+        auto this_event = m_parent->find(aName, false);
         for (auto i : m_next2)
             this_event->insertNext(i.first, i.second);
         this_event->m_external = m_external;
         setAspect(this_event->m_before, m_before);
         setAspect(this_event->m_around, m_around);
         setAspect(this_event->m_after, m_after);
-        pipeline::instance()->remove(m_name);
+        m_parent->remove(m_name);
     }, rea::Json("name", aName + "_pipe_add"));
 }
 
 
 void pipeline::remove(const QString& aName, bool aOutside){
-    auto pipe = instance()->m_pipes.value(aName);
+    auto pipe = m_pipes.value(aName);
     if (pipe){
         //std::cout << "pipe: " + aName.toStdString() + " is removed!" << std::endl;
         //run("re_log", STMJSON(dst::Json("msg", "pipe " + aName + " is removed")));
-        instance()->m_pipes.remove(aName);
+        m_pipes.remove(aName);
         delete pipe; //if aName is from pipe, this must be write in the end
     }
     if (aOutside)
-        instance()->removePipeOutside(aName);
+        removePipeOutside(aName);
 }
 
 void pipeline::removePipeOutside(const QString& aName){
@@ -285,20 +286,27 @@ QThread* pipeline::findThread(int aNo){
 
 pipeline* pipeline::instance(const QString& aName){
     if (!pipelines.contains(aName)){
-        if (aName == "js")
-            pipelines.insert(aName, new pipelineJS());
-        else
+        if (aName == "")
             pipelines.insert(aName, new pipeline());
+        else{
+            auto pl = std::make_shared<pipeline*>();
+            instance()->call<std::shared_ptr<pipeline*>>("create" + aName + "pipeline", pl);
+            if (*pl)
+                pipelines.insert(aName, *pl);
+        }
+
     }
     return pipelines.value(aName);
 }
 
-pipeline::pipeline(){
-    supportType<QString>();
-    supportType<QJsonObject>();
-    supportType<QJsonArray>();
-    supportType<double>();
-    supportType<bool>();
+pipeline::pipeline(const QString& aName){
+    if (aName == ""){
+        supportType<QString>();
+        supportType<QJsonObject>();
+        supportType<QJsonArray>();
+        supportType<double>();
+        supportType<bool>();
+    }
 }
 
 pipeline::~pipeline(){

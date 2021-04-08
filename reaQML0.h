@@ -5,15 +5,6 @@
 
 namespace rea4 {
 
-class pipelineQML0 : public rea4::pipeline{
-public:
-    Q_OBJECT
-public:
-    pipelineQML0() : pipeline(){
-
-    }
-};
-
 extern QQmlApplicationEngine* qml_engine;
 
 class qmlScopeCache : public QObject{
@@ -69,12 +60,12 @@ public:
 private:
     template<typename T, typename S = T>
     void doCall(const QString& aName, const T& aData){
-        auto pip = pipeline::find(aName, false);
+        auto pip = pipeline::instance()->find(aName, false);
         if (!pip)
             return;
         QEventLoop loop;
         bool timeout = false;
-        auto monitor = pipeline::find(aName)->next<S>([&loop, &timeout, this](stream<S>* aInput){
+        auto monitor = pipeline::instance()->find(aName)->next<S>([&loop, &timeout, this](stream<S>* aInput){
             m_data = qml_engine->toScriptValue(aInput->data());
             m_scope = aInput->scope();
             if (loop.isRunning()){
@@ -85,7 +76,7 @@ private:
         pip->execute(std::make_shared<stream<T>>(aData, m_tag, m_scope));
         if (!timeout)
             loop.exec();
-        pipeline::instance("qml")->remove(monitor->actName());
+        pipeline::instance()->remove(monitor->actName());
     }
 
     QJSValue m_data;

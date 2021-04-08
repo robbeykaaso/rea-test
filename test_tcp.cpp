@@ -41,7 +41,7 @@ void testSocket(){
         }, protocal_test)
         ->next("testSuccess");
 
-    pipeline::run<QJsonObject>("tryLinkServer", rea::Json("ip", "127.0.0.1",
+    pipeline::instance()->run<QJsonObject>("tryLinkServer", rea::Json("ip", "127.0.0.1",
                                                           "port", "8081",
                                                           "id", "hello"));
 }

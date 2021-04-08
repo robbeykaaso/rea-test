@@ -38,10 +38,8 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QQmlApplicationEngine* aEngine, QWidget *parent = nullptr);
     ~MainWindow();
-    QQmlApplicationEngine* m_qml_engine;
-    void initialize();
 private:
     void unitTest();
     JsContext* m_jsContext;

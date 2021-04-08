@@ -56,7 +56,7 @@ void testStorage(const QString& aRoot = ""){ //for fs: aRoot == ""; for minIO: a
         })
         ->next("testSuccess");
 
-    pipeline::run<stgJson>(aRoot + "writeJson", stgJson(Json("hello", "world2"), "testFS.json"), tag);
+    pipeline::instance()->run<stgJson>(aRoot + "writeJson", stgJson(Json("hello", "world2"), "testFS.json"), tag);
 }
 
 static rea::regPip<QJsonObject> test_storage([](rea::stream<QJsonObject>* aInput){
