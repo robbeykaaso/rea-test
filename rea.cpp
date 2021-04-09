@@ -118,7 +118,7 @@ void pipe0::tryExecutePipe(const QString& aName, std::shared_ptr<stream0> aStrea
     auto pip = m_parent->find(aName);
     if (pip){
         if (pip->m_external)
-            m_parent->tryExecutePipeOutside(pip->actName(), aStream, QJsonObject(), false);
+            m_parent->tryExecutePipeOutside(pip->actName(), aStream, QJsonObject());
         else
             pip->execute(aStream);
     }
@@ -183,27 +183,30 @@ private:
 static QHash<QString, pipeline*> pipelines;
 
 void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, bool aFromOutside){
-    auto pip = find(aName, !aFromOutside);
-    if (pip){
-        if (!aSync.empty()){
-            pip->resetTopo();
-            auto nxts = aSync.value("next").toArray();
-            for (auto i : nxts){
-                auto nxt = i.toArray();
-                pip->insertNext(nxt[0].toString(), nxt[1].toString());
-            }
-            pip->setAspect(pip->m_before, aSync.value("before").toString());
-            pip->setAspect(pip->m_after, aSync.value("after").toString());
-            pip->setAspect(pip->m_around, aSync.value("around").toString());
-        }
-        pip->execute(aStream);
+    auto pip = find(aName, false);
+    if (!pip){
+        if (aFromOutside && !find(aName + "_pipe_add", false))
+            return;
+        pip = find(aName);
     }
+    if (!aSync.empty()){
+        pip->resetTopo();
+        auto nxts = aSync.value("next").toArray();
+        for (auto i : nxts){
+            auto nxt = i.toArray();
+            pip->insertNext(nxt[0].toString(), nxt[1].toString());
+        }
+        pip->setAspect(pip->m_before, aSync.value("before").toString());
+        pip->setAspect(pip->m_after, aSync.value("after").toString());
+        pip->setAspect(pip->m_around, aSync.value("around").toString());
+    }
+    pip->execute(aStream);
 }
 
-void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, bool aFromOutside){
+void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync){
     for (auto i : pipelines)
         if (i != this)
-            i->execute(aName, aStream, aSync, aFromOutside);
+            i->execute(aName, aStream, aSync, true);
 }
 
 void pipeFuture::execute(std::shared_ptr<stream0> aStream){
@@ -242,7 +245,7 @@ pipeFuture::pipeFuture(pipeline* aParent, const QString& aName) : pipe0 (aParent
         setAspect(m_after, pip->m_after);
         m_parent->remove(aName);
     }
-    m_parent->add<int>([this, aName](const stream<int>* aInput){
+    m_parent->add<int>([this, aName](const stream<int>*){
         auto this_event = m_parent->find(aName, false);
         for (auto i : m_next2)
             this_event->insertNext(i.first, i.second);
@@ -301,6 +304,7 @@ pipeline* pipeline::instance(const QString& aName){
 
 pipeline::pipeline(const QString& aName){
     if (aName == ""){
+        QThreadPool::globalInstance()->setMaxThreadCount(8);
         supportType<QString>();
         supportType<QJsonObject>();
         supportType<QJsonArray>();

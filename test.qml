@@ -18,6 +18,9 @@ ApplicationWindow {
     height: 600
     visible: true
     property var view_cfg
+    property int test_pass
+    property int test_sum
+    property var unit_test
     Universal.theme: Universal.Dark
 
     menuBar: MenuBar{
@@ -117,11 +120,54 @@ ApplicationWindow {
                 text: "saveTransaction"
                 onClicked: Pipeline.run("logTransaction", 1, "", false)
             }
-            Component.onCompleted: {
+
+            function test28(){
                 Pipeline2.add(function(aInput){
                     console.assert(aInput.data()["test28"] === "test28")
                     aInput.outs(aInput.data(), "test28_0")
-                }, {name: "test28_"})
+                }, {name: "test28_", external: true})
+            }
+
+            function test31_(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 3)
+                    aInput.out()
+                }, {name: "test31"})
+                .nextF(function(aInput){
+                    console.assert(aInput.data() == 3)
+                    aInput.outs("Pass: test31", "testSuccessQML")
+                })
+            }
+
+            function test31(){
+                Pipeline2.run("test31", 3)
+            }
+
+            Component.onCompleted: {
+                Pipeline2.add(function(aInput){
+                    test_pass++
+                    console.log("Success: " + aInput.data() + "(" + test_pass + "/" + test_sum + ")")
+                }, {name: "testSuccessQML"})
+
+                Pipeline2.add(function(aInput){
+                    test_pass--
+                    console.log("Fail: " + aInput.data() + "(" + test_pass + "/" + test_sum + ")")
+                }, {name: "testFailQML"})
+
+                unit_test = {
+                    test31: test31
+                }
+                test28()
+                test31_()
+
+                Pipeline2.add(function(aInput){
+                    var dt = aInput.data()
+                    for (var i in dt)
+                        test_sum += dt[i]
+                    for (var i in dt)
+                        if (unit_test[i])
+                            unit_test[i]()
+                }, {name: "unitTestQML", external: true})
 
                 Pipeline.add(function(aInput){
                     console.assert(aInput.data()["test8"] === "test8")
@@ -1257,7 +1303,8 @@ ApplicationWindow {
                 id: webview_chn
                /* Component.onCompleted: {
                     var stm = Pipeline2.asyncCall("pipelineJSObject", 0)
-                    webview_chn.registerObject("Pipeline", stm.scope().data("pipeline"))
+                    webview_chn.registerObject("Pipeline", stm.data())
+                    //webview_chn.registerObject("Pipeline", stm.scope().data("pipeline"))
                     webview.url = "file:/html/test.html"
                 }*/
             }

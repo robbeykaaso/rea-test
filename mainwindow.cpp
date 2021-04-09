@@ -340,14 +340,14 @@ void MainWindow::unitTest(){
 
     rea4::m_tests.insert("test22", [](){
         rea4::pipeline::instance()->input<int>(0, "test22")
-            ->asyncCall<int>([](rea4::stream<int>* aInput){
+            ->asyncCallF<int>([](rea4::stream<int>* aInput){
                 aInput->setData(aInput->data() + 1)->out();
             }, rea::Json("thread", 1))
-            ->asyncCall<QString>([](rea4::stream<int>* aInput){
+            ->asyncCallF<QString>([](rea4::stream<int>* aInput){
                 assert(aInput->data() == 1);
                 aInput->outs<QString>("world");
             }, rea::Json("thread", 2))
-            ->asyncCall<QString>([](rea4::stream<QString>* aInput){
+            ->asyncCallF<QString>([](rea4::stream<QString>* aInput){
                 assert(aInput->data() == "world");
                 aInput->setData("Pass: test22")->out();
             })
@@ -408,9 +408,9 @@ void MainWindow::unitTest(){
         auto tmp = foo(6);
         rea4::pipeline::instance()->add<int>(foo(2));
         rea4::pipeline::instance()->input<int>(3)
-            ->asyncCall<int>(foo(2))
-            ->asyncCall<int>(std::bind1st(std::mem_fun(&foo::memberFoo), &tmp))
-            ->asyncCall<QString>([](rea4::stream<int>* aInput){
+            ->asyncCallF<int>(foo(2))
+            ->asyncCallF<int>(std::bind1st(std::mem_fun(&foo::memberFoo), &tmp))
+            ->asyncCallF<QString>([](rea4::stream<int>* aInput){
                 assert(aInput->data() == 11);
                 aInput->outs<QString>("Pass: test27")->out();
             })
@@ -437,6 +437,35 @@ void MainWindow::unitTest(){
         auto sp = std::make_shared<rea4::scopeCache>();
         sp->cache<JsContext*>("ctx", m_jsContext);
         rea4::pipeline::instance()->run<JsContext*>("test29", m_jsContext, "", sp);
+    });
+
+    rea4::m_tests.insert("test30", [](){
+        static std::mutex mtx;
+        rea4::pipeline::instance()->add<double>([](rea4::stream<double>* aInput){
+                aInput->scope()->cache<std::shared_ptr<QSet<QThread*>>>("threads", std::make_shared<QSet<QThread*>>())
+                ->cache<int>("count", 0);
+            for (int i = 0; i < 200; ++i)
+                aInput->outs<double>(i);
+        }, rea::Json("name", "test30"))
+            ->next(rea4::pipeline::instance()->add<double, rea4::pipeParallel>([](rea4::stream<double>* aInput){
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                {
+                    std::lock_guard<std::mutex> gd(mtx);
+                    auto trds = aInput->scope()->data<std::shared_ptr<QSet<QThread*>>>("threads");
+                    trds->insert(QThread::currentThread());
+                    aInput->scope()->cache<int>("count", aInput->scope()->data<int>("count") + 1);
+                }
+                aInput->out();
+            }))->next<double>([](rea4::stream<double>* aInput){
+                std::lock_guard<std::mutex> gd(mtx);
+                auto cnt = aInput->scope()->data<int>("count");
+                if (cnt == 200){
+                    aInput->scope()->cache<int>("count", cnt + 1);
+                    assert(aInput->scope()->data<std::shared_ptr<QSet<QThread*>>>("threads")->size() == 8);
+                    aInput->outs<QString>("Pass: test30", "testSuccess");
+                }
+            });
+        rea4::pipeline::instance()->run<double>("test30", 0);
     });
 
     rea4::test("test4");

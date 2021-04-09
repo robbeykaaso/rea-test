@@ -47,10 +47,10 @@ add_library(REA_TEST SHARED
     "rea.cpp"
     "reaJS.h"
     "reaJS.cpp"
-    "reaQML0.h"
-    "reaQML0.cpp"
-    #"reaQML.h"
-    #"reaQML.cpp"
+    #"reaQML0.h"
+    #"reaQML0.cpp"
+    "reaQML.h"
+    "reaQML.cpp"
     )
 # 创建动态库别名
 

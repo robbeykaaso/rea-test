@@ -8,7 +8,7 @@ public:
 public:
     pipelineJS();
 public:
-    Q_INVOKABLE void tryExecuteOutsidePipe(const QString& aName, const QVariant& aData, const QString& aTag, const QJsonObject& aScope, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = true);
+    Q_INVOKABLE void tryExecuteOutsidePipe(const QString& aName, const QVariant& aData, const QString& aTag, const QJsonObject& aScope, const QJsonObject& aSync = QJsonObject());
     Q_INVOKABLE void removePipeOutside(const QString& aName) override;
     void remove(const QString& aName, bool) override;
 signals:

@@ -110,26 +110,50 @@ const generateUUID = function () {
 ////////////////////////////////////////////////////////////////////////////////////////////
 
 var PipelineJS
+var inited = false
+var candidates_functions = []
+function initPipelineJS(){
+    return new Promise(function(resolve, reject){
+        if (typeof qt != "undefined"){
+            new QWebChannel(qt.webChannelTransport, function(channel){
+                PipelineJS = channel.objects.Pipeline;
+                if (!PipelineJS)
+                    alert("no PipelineJS")
+                PipelineJS.executeJSPipe.connect(function(aName, aData, aTag, aScope, aSync, aFromOutside){
+                    const len = Object.keys(aScope).length
+                    let sp = {}
+                    for (let i = 0; i < len; i += 2)
+                        sp[aScope[i]] = aScope[i + 1]
+                    pipelines().execute(aName, new stream(aData, aTag, new scopeCache(sp)), aSync, aFromOutside)
+                })
+                PipelineJS.removeJSPipe.connect(function(aName){
+                    pipelines().remove(aName)
+                })
+                inited = true
 
-if (typeof qt != "undefined"){
-    new QWebChannel(qt.webChannelTransport, function(channel){
-        PipelineJS = channel.objects.Pipeline;
-        if (!PipelineJS)
-            alert("no PipelineJS")
-        PipelineJS.executeJSPipe.connect(function(aName, aData, aTag, aScope, aSync, aFromOutside){
-            const len = Object.keys(aScope).length
-            let sp = {}
-            for (let i = 0; i < len; i += 2)
-                sp[aScope[i]] = aScope[i + 1]
-            pipelines().execute(aName, new stream(aData, aTag, new scopeCache(sp)), aSync, aFromOutside)
-        })
-        PipelineJS.removeJSPipe.connect(function(aName){
-            pipelines().remove(aName)
-        })
-        unitTest()
+                for (let i in candidates_functions)
+                    candidates_functions[i]()
+                candidates_functions = []
+
+                resolve()
+            })
+        }else{
+            inited = true
+            alert("qt object not exists!")
+            reject()
+        }
     })
-}else
-    alert("qt object not exists!")
+}
+
+function rea(aFunc){
+    if (!inited){
+        if (!candidates_functions.length)
+            initPipelineJS()
+        candidates_functions.push(aFunc)
+    }else{
+        aFunc()
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -288,7 +312,7 @@ class pipe {
         const pip = this.m_parent.find(aName)
         if (pip)
             if (pip.m_external)
-                PipelineJS.tryExecuteOutsidePipe(aName, aStream.data(), aStream.tag(), aStream.scope().m_data, {}, false)
+                PipelineJS.tryExecuteOutsidePipe(aName, aStream.data(), aStream.tag(), aStream.scope().m_data, {})
             else
                 pip.execute(aStream)
     }
@@ -370,7 +394,7 @@ class pipeFuture extends pipe{
         let sync = {}
         if (this.m_next2.length)
             sync["next"] = this.m_next2
-        PipelineJS.tryExecuteOutsidePipe(this.actName(), aStream.data(), aStream.tag(), aStream.scope().m_data, sync, true)
+        PipelineJS.tryExecuteOutsidePipe(this.actName(), aStream.data(), aStream.tag(), aStream.scope().m_data, sync)
     }
 }
 
@@ -431,17 +455,21 @@ class pipeline{
     }
 
     execute(aName, aStream, aSync, aFromOutside = false){
-        const pip = this.find(aName, !aFromOutside)
-        if (pip){            
-            if (aSync){
-                if (Object.keys(aSync).length > 0)
-                    pip.resetTopo()
-                if (aSync["next"])
-                    for (let i in aSync["next"])
-                        pip.insertNext(aSync["next"][i][0], aSync["next"][i][1])
-            }
-            pip.execute(aStream)    
+        let pip = this.find(aName, false)
+        if (!pip){
+            if (aFromOutside && !this.find(aName + "_pipe_add", false))
+                return
+            pip = this.find(aName)
         }
+        pip = this.find(aName)
+        if (aSync){
+            if (Object.keys(aSync).length > 0)
+                pip.resetTopo()
+            if (aSync["next"])
+                for (let i in aSync["next"])
+                    pip.insertNext(aSync["next"][i][0], aSync["next"][i][1])
+        }
+        pip.execute(aStream)
     }
 
     input(aInput, aTag = "", aScope = null){
@@ -635,6 +663,7 @@ function test8_(){
 
 function test9(){
     pipelines().run("test9", "hello")
+    return "test9"
 }
 
 function test9_(){
@@ -756,6 +785,8 @@ function test21_(){
 
 function test21__(){
     pipelines().run("test21", 56)
+
+    return "test21__"
 }
 
 function test22(){
@@ -814,7 +845,15 @@ function test29(){
     return "test29"
 }
 
-function unitTest(){
+function test30(){
+    return "test30"
+}
+
+function test31(){
+    return "test31"
+}
+
+rea(e=>{
     let test_sum = 0
     let test_pass = 0
 
@@ -867,12 +906,17 @@ function unitTest(){
             [test26()]: 1, //test c++ aop and keep topo
             [test27()]: 1, //test c++ functor
             [test28()]: 1, //test pipe qml
-            [test29()]: 1  //test rea-js arbitrary type
+            [test29()]: 1,  //test rea-js arbitrary type
+            [test30()]: 1, //test c++ pipe parallel
                     }).out()
     }, {name: "unitTest"})
     .next("unitTestC++")
     .nextF(function(aInput){
-        test9()
-        test21__()
+        aInput.setData({
+                           [test9()]: 0,
+                           [test21__()]: 0,
+                           [test31()]: 1
+                       }).out()
     })
-}
+    .next("unitTestQML")
+})

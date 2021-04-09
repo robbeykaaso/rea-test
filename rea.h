@@ -36,7 +36,7 @@ public:
     virtual QString name(){
         return "";
     }
-    virtual QVariant QData(stream0* aData){
+    virtual QVariant QData(stream0*){
         return QVariant();
     }
 };
@@ -115,6 +115,8 @@ protected:
 class pipeFuture;
 template <typename T, typename F = pipeFunc<T>>
 class pipeDelegate;
+template <typename T, typename F>
+class pipeParallel;
 
 class pipe0 : public QObject{
 public:
@@ -141,6 +143,8 @@ public:
     virtual void removeNext(const QString& aName);
     void removeAspect(pipe0::AspectType aType, const QString& aAspect = "");
     virtual void execute(std::shared_ptr<stream0> aStream);
+
+    virtual void resetTopo();
 private:
     friend pipeline;
 protected:
@@ -162,7 +166,6 @@ protected:
     virtual void insertNext(const QString& aName, const QString& aTag) {
         m_next.insert(aName, aTag);
     }
-    virtual void resetTopo();
 protected:
     void doNextEvent(const QMap<QString, QString>& aNexts, std::shared_ptr<stream0> aStream);
     void setAspect(QString& aTarget, const QString& aAspect);
@@ -185,9 +188,9 @@ public:
     QString actName() override {return m_act_name;}
     void execute(std::shared_ptr<stream0> aStream) override;
     void removeNext(const QString& aName) override;
+    void resetTopo() override;
 protected:
     pipeFuture(pipeline* aParent, const QString& aName);
-    void resetTopo() override;
     void insertNext(const QString& aName, const QString& aTag) override;
 private:
     QString m_act_name;
@@ -235,9 +238,9 @@ public:
         return ret;
     }
 
-    pipe0* find(const QString& aName, bool needFuture = true) {
+    pipe0* find(const QString& aName, bool aNeedFuture = true) {
         auto ret = m_pipes.value(aName);
-        if (!ret && needFuture){
+        if (!ret && aNeedFuture){
             ret = new pipeFuture(this, aName);
         }
         return ret;
@@ -277,7 +280,7 @@ public:
 protected:
     virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = false);
     virtual void removePipeOutside(const QString& aName);
-    void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = true);
+    virtual void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject());
 private:
     QThread* findThread(int aNo);
     QHash<QString, pipe0*> m_pipes;
@@ -374,10 +377,10 @@ public:
         return ret; //std::dynamic_pointer_cast<stream<T>>(shared_from_this());
     }
 
-    template<typename S = T, template<class, typename> class P = pipe>
-    std::shared_ptr<stream<S>> asyncCall(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject(), pipeline* aPipeline = pipeline::instance()){
-        auto pip = aPipeline->add<T, P>(aFunc, aParam);
-        auto ret = asyncCall<S>(pip->actName());
+    template<typename S = T, template<class, typename> class P = pipe, typename F = pipeFunc<T>, typename R = pipeFunc<T>>
+    std::shared_ptr<stream<S>> asyncCallF(F aFunc, const QJsonObject& aParam = QJsonObject(), pipeline* aPipeline = pipeline::instance()){
+        auto pip = aPipeline->add<T, P, F, R>(aFunc, aParam);
+        auto ret = asyncCall<S>(pip->actName(), aPipeline);
         aPipeline->remove(pip->actName(), true);
         return ret;
     }
@@ -484,20 +487,21 @@ protected:
         return true;
     }
     void doEvent(const std::shared_ptr<stream<T>> aStream){
-        if (doAspect(m_before, aStream, AspectType::AspectBefore)){
+        if (doAspect(m_before, aStream)){
             if (m_around != "")
-                doAspect(m_around, aStream, AspectType::AspectAround);
+                doAspect(m_around, aStream);
             else
                 funcType<T, F>().doEvent(m_func, aStream);
         }
         if (aStream->m_outs)
-            doAspect(m_after, aStream, AspectType::AspectAfter);
+            doAspect(m_after, aStream);
     }
 protected:
     F m_func;
+    friend pipeParallel<T, F>;
     friend pipeline;
 private:
-    bool doAspect(const QString& aName, std::shared_ptr<stream<T>> aStream, AspectType aType){
+    bool doAspect(const QString& aName, std::shared_ptr<stream<T>> aStream){
         if (aName == "")
             return true;
         bool ret = false;
@@ -596,6 +600,59 @@ protected:
     }
 private:
     QHash<QString, QMap<QString, QString>> m_next2;
+    friend pipeline;
+};
+
+template <typename T, typename F>
+class parallelTask : public QRunnable{
+public:
+    parallelTask(pipeParallel<T, F>* aPipe, std::shared_ptr<stream<T>> aStream) : QRunnable(){
+        m_pipe = aPipe;
+        m_source = aStream;
+    }
+    void run() override{
+        m_pipe->doEvent(m_source);
+        m_pipe->doNextEvent(m_pipe->m_next, m_source);
+    }
+private:
+    std::shared_ptr<stream<T>> m_source;
+    pipeParallel<T, F>* m_pipe;
+};
+
+template <typename T, typename F = pipeFunc<T>>
+class pipeParallel : public pipe<T, F> {
+protected:
+    pipeParallel(pipeline* aParent, const QString& aName, int aThreadNo = 0, bool aReplace = false) : pipe<T, F>(aParent, aName, aThreadNo, aReplace) {
+
+    }
+    ~pipeParallel() override{
+
+    }
+    pipe0* initialize(F aFunc, const QJsonObject& aParam = QJsonObject()) override {
+        m_act_name = aParam.value("delegate").toString();
+        m_init = aFunc != nullptr;
+        return pipe<T, F>::initialize(aFunc, aParam);
+    }
+    bool event( QEvent* e) override{
+        if(e->type()== pipe0::streamEvent::type){
+            auto eve = reinterpret_cast<pipe0::streamEvent*>(e);
+            if (eve->getName() == pipe0::m_name){
+                if (!m_init){
+                    auto pip = pipe0::m_parent->find(m_act_name, false);
+                    if (pip)
+                        pipe<T, F>::m_func = dynamic_cast<pipe<T, F>*>(pip)->m_func;
+                    m_init = true;
+                }
+                auto stm = std::dynamic_pointer_cast<stream<T>>(eve->getStream());
+                QThreadPool::globalInstance()->start(new parallelTask<T, F>(this, stm));
+            }
+        }
+        return true;
+    }
+private:
+    bool m_init = false;
+    QString m_act_name;
+    friend parallelTask<T, F>;
     friend pipeline;
 };
 
