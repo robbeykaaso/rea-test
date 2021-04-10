@@ -125,19 +125,19 @@ public:
     virtual ~pipe0(){}
     virtual QString actName() {return m_name;}
 
-    template <typename T>
-    pipe0* next(pipeFunc<T> aNextFunc, const QString& aTag = "", const QJsonObject& aParam = QJsonObject()){
+    template <typename T, template<class, typename> class P = pipe>
+    pipe0* nextF(pipeFunc<T> aNextFunc, const QString& aTag = "", const QJsonObject& aParam = QJsonObject()){
         return nextF0(m_parent, this, aNextFunc, aTag, aParam);
     }
-    virtual pipe0* next(pipe0* aNext, const QString& aTag = "");
+    virtual pipe0* nextP(pipe0* aNext, const QString& aTag = "");
     virtual pipe0* next(const QString& aName, const QString& aTag = "");
 
     template <typename T>
-    pipe0* nextB(pipeFunc<T> aNextFunc, const QString& aTag = "", const QJsonObject& aParam = QJsonObject()){
-        next<T>(aNextFunc, aTag, aParam);
+    pipe0* nextFB(pipeFunc<T> aNextFunc, const QString& aTag = "", const QJsonObject& aParam = QJsonObject()){
+        nextF<T>(aNextFunc, aTag, aParam);
         return this;
     }
-    virtual pipe0* nextB(pipe0* aNext, const QString& aTag = "");
+    virtual pipe0* nextPB(pipe0* aNext, const QString& aTag = "");
     virtual pipe0* nextB(const QString& aName, const QString& aTag = "");
 
     virtual void removeNext(const QString& aName);
@@ -173,7 +173,7 @@ protected:
     QString m_name;
     QMap<QString, QString> m_next;
     QString m_before = "", m_around = "", m_after = "";
-    bool m_external = false;
+    QString m_external = "";
     pipeline* m_parent;
     QThread* m_thread = QThread::currentThread();
 private:
@@ -204,6 +204,7 @@ public:
 public:
     pipeline(const QString& aName = "");
     pipeline(pipeline&&) = delete;
+    QString name(){return m_name;}
     virtual ~pipeline();
 
     virtual void remove(const QString& aName, bool aOutside = false);
@@ -278,11 +279,13 @@ public:
         m_types.insert(typeid (T).name(), std::make_shared<typeTrait<T>>());
     }
 protected:
-    virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = false);
+    virtual void execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject(),
+                         bool aFromOutside = false);
     virtual void removePipeOutside(const QString& aName);
-    virtual void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject());
+    virtual void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, const QString& aFlag);
 private:
     QThread* findThread(int aNo);
+    QString m_name;
     QHash<QString, pipe0*> m_pipes;
     QHash<int, std::shared_ptr<QThread>> m_threads;
     QHash<QString, std::shared_ptr<typeTrait0>> m_types;
@@ -362,7 +365,7 @@ public:
         std::shared_ptr<stream<S>> ret = nullptr;
         QEventLoop loop;
         bool timeout = false;
-        auto monitor = aPipeline->find(aName)->next<S>([&loop, &timeout, &ret, this](stream<S>* aInput){
+        auto monitor = aPipeline->find(aName)->nextF<S>([&loop, &timeout, &ret, this](stream<S>* aInput){
             ret = map<S>(aInput->data());
             if (loop.isRunning()){
                 loop.quit();
@@ -449,7 +452,7 @@ public:
 
 template <typename T>
 pipe0* nextF0(pipeline* aPipeline, pipe0* aPipe, pipeFunc<T> aNextFunc, const QString& aTag, const QJsonObject& aParam){
-    return aPipe->next(aPipeline->add<T>(aNextFunc, aParam), aTag);
+    return aPipe->next(aPipeline->add<T>(aNextFunc, aParam)->actName(), aTag);
 }
 
 template<typename T, typename F>
@@ -466,7 +469,7 @@ protected:
     pipe(pipeline* aParent, const QString& aName = "", int aThreadNo = 0, bool aReplace = false) : pipe0(aParent, aName, aThreadNo, aReplace) {}
     virtual pipe0* initialize(F aFunc, const QJsonObject& aParam = QJsonObject()){
         m_func = aFunc;
-        m_external = aParam.value("external").toBool();
+        m_external = aParam.value("external").toString(m_parent->name());
         auto bf = aParam.value("befored").toString();
         if (bf != "")
             setAspect(m_before, bf);
@@ -535,8 +538,8 @@ protected:
 template <typename T, typename F>
 class pipeDelegate : public pipe<T, F>{
 public:
-    pipe0* next(pipe0* aNext, const QString& aTag = "") override{
-        return pipe0::m_parent->find(m_delegate)->next(aNext, aTag);
+    pipe0* nextP(pipe0* aNext, const QString& aTag = "") override{
+        return pipe0::m_parent->find(m_delegate)->nextP(aNext, aTag);
     }
     pipe0* next(const QString& aName, const QString& aTag = "") override{
         return pipe0::m_parent->find(m_delegate)->next(aName, aTag);
@@ -662,11 +665,9 @@ class regPip
 public:
     regPip(pipeFunc<T> aFunc, const QJsonObject& aParam = QJsonObject(), const QString& aPrevious = ""){
         auto pip = pipeline::instance()->add<T, P>(aFunc, aParam);
-        actName = pip->actName();
         if (aPrevious != "")
-            rea4::pipeline::instance()->find(aPrevious)->next(pip);
+            rea4::pipeline::instance()->find(aPrevious)->next(pip->actName());
     }
-    QString actName;
 };
 
 }

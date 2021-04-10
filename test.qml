@@ -125,7 +125,7 @@ ApplicationWindow {
                 Pipeline2.add(function(aInput){
                     console.assert(aInput.data()["test28"] === "test28")
                     aInput.outs(aInput.data(), "test28_0")
-                }, {name: "test28_", external: true})
+                }, {name: "test28_", external: ""})
             }
 
             function test31_(){
@@ -143,22 +143,293 @@ ApplicationWindow {
                 Pipeline2.run("test31", 3)
             }
 
+            function test32_(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 4)
+                    aInput.outs(5, "test32_")
+                }, {name: "test32"})
+                .nextF(function(aInput){
+                    console.assert(aInput.data() == 5)
+                    aInput.outs("Pass: test32", "testSuccessQML")
+                }, "", {name: "test32_"})
+            }
+
+            function test32(){
+                Pipeline2.run("test32", 4)
+            }
+
+            function test33_(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 66)
+                    aInput.outs("test33", "test33_0")
+                }, {name: "test33"})
+                .next("test33_0")
+                .next("testSuccessQML")
+
+                Pipeline2.add(function(aInput){
+                    aInput.out()
+                }, {name: "test33_1"})
+                .next("test33__")
+                .next("testSuccessQML")
+
+                Pipeline2.find("test33_0")
+                .nextF(function(aInput){
+                    aInput.out()
+                }, "", {name: "test33__"})
+                .next("testSuccessQML")
+
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == "test33")
+                    aInput.outs("Pass: test33", "testSuccessQML")
+                    aInput.outs("Pass: test33_", "test33__")
+                }, {name: "test33_0"})
+            }
+
+            function test33(){
+                Pipeline2.run("test33", 66)
+                Pipeline2.run("test33_1", "Pass: test33__")
+            }
+
+            function test34(){
+                Pipeline2.find("test34__").removeNext("test_34")
+
+                Pipeline2.add(function(aInput){
+                    aInput.scope().cache("hello", "world")
+                    aInput.out()
+                }, {name: "test34"})
+                .next("test34_")
+                .next("test34__")
+                .nextF(function(aInput){  //test34__next
+                    console.assert(aInput.data() == 6)
+                    console.assert(aInput.scope().data("hello") == null)
+                    console.assert(aInput.scope().data("hello2") == "world")
+                    aInput.outs("Pass: test34", "testSuccessQML")
+                }, "", {name: "test_34"})
+
+                Pipeline2.run("test34", 4)
+            }
+
+            function test35(){
+                Pipeline2.find("test35").removeNext("test_35")
+
+                Pipeline2.find("test35")
+                .nextF(function(aInput){
+                    console.assert(aInput.data() == "world")
+                    aInput.outs("Pass: test35", "testSuccessQML")
+                }, "", {name: "test_35"})
+
+                Pipeline2.run("test35", "hello")
+            }
+
+            function test36(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 4)
+                    console.assert(aInput.scope().data("hello") == "world")
+                    aInput.setData(aInput.data() + 1).out()
+                }, {name: "test36_", external: ""})
+
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 5)
+                    aInput.scope(true).cache("hello2", "world");
+                    aInput.setData(aInput.data() + 1).out()
+                }, {name: "test36__", external: ""})
+            }
+
+            function test37(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == "hello")
+                    aInput.setData("world").out()
+                }, {name: "test37", external: ""})
+            }
+
+            function test38_(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 66)
+                    aInput.setData(77).out()
+                }, {name: "test38", type: "Partial"})
+                .nextFB(function(aInput){
+                    console.assert(aInput.data() == 77)
+                    aInput.outs("Pass: test38", "testSuccessQML")
+                }, "test38")
+                .nextF(function(aInput){
+                    console.assert(aInput.data() == 77)
+                    aInput.outs("Fail: test38", "testFailQML")
+                }, "test38_")
+            }
+
+            function test38(){
+                Pipeline2.run("test38", 66, "test38")
+            }
+
+            function test39_(){
+                Pipeline2.find("test39")
+                .nextFB(function(aInput){
+                    console.assert(aInput.data() == 77.0)
+                    aInput.outs("Pass: test39", "testSuccessQML")
+                }, "test39", {name: "test39_"})
+                .nextF(function(aInput){
+                    console.assert(aInput.data() == 77.0)
+                    aInput.outs("Fail: test39", "testFailQML")
+                }, "test39_", {name: "test39__"})
+
+            }
+
+            function test39(){
+                Pipeline2.run("test39", 66, "test39")
+            }
+
+            function test40(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 66)
+                    aInput.setData(77).out()
+                }, {name: "test40", external: "", type: "Partial"})
+            }
+
+            function test41_(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 66.0)
+                    aInput.out()
+                }, {name: "test41_0",
+                    delegate: "test41",
+                    type: "Delegate"})
+                .next("testSuccessQML")
+
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 56.0)
+                    aInput.setData("Pass: test41").out()
+                }, {name: "test41"})
+            }
+
+            function test41(){
+                Pipeline2.run("test41_0", 66.0)
+                Pipeline2.run("test41", 56.0)
+            }
+
+            function test42(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 56.0)
+                    aInput.setData("Pass: test42").out()
+                }, {name: "test42", external: ""})
+            }
+
+            function test43(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 66.0)
+                    aInput.out()
+                }, {name: "test43_0",
+                    delegate: "test43",
+                    type: "Delegate"})
+                .nextB("testSuccess")
+                .next("testSuccessQML")
+
+                Pipeline2.run("test43_0", 66)
+            }
+
+            function test43__(){
+                Pipeline2.run("test43", 56)
+            }
+
+            function test44(){
+                Pipeline2.input(0, "test44")
+                .asyncCallF(function(aInput){
+                    aInput.setData(aInput.data() + 1).out()
+                }).asyncCallF(function(aInput){
+                    console.assert(aInput.data() == 1)
+                    aInput.outs("world")
+                }).asyncCallF(function(aInput){
+                    console.assert(aInput.data() == "world")
+                    aInput.setData("Pass: test44").out()
+                }).asyncCall("testSuccessQML")
+            }
+
+            function test45(){
+                Pipeline2.input(24, "test45")
+                .asyncCall("test45")
+                .asyncCall("testSuccessQML")
+            }
+
+            function test46(){
+                Pipeline2.add(function(aInput){
+                    console.assert(aInput.data() == 25.0)
+                    aInput.setData("Pass: test46").out()
+                }, {name: "test46", external: ""})
+            }
+
+            function test47(){
+                Pipeline2.add(function(aInput){
+                    let dt = aInput.data()
+                    console.assert(dt == 1.0)
+                    aInput.setData(dt + 1).out()
+                }, {name: "test__47", before: "test_47", replace: true})
+
+                Pipeline2.add(function(aInput){
+                    let dt = aInput.data()
+                    console.assert(dt == 2.0)
+                    aInput.setData(dt + 1).out()
+                }, {name: "test_47", before: "test47", replace: true})
+
+                Pipeline2.add(function(aInput){
+                    let dt = aInput.data()
+                    console.assert(dt == 3.0)
+                    aInput.setData(dt + 1).out()
+                }, {name: "test47", replace: true})
+
+                Pipeline2.add(function(aInput){
+                    let dt = aInput.data()
+                    console.assert(dt == 4.0)
+                    aInput.setData(dt + 1).out()
+                }, {name: "test47_", after: "test47", replace: true})
+
+                Pipeline2.add(function(aInput){
+                    let dt = aInput.data()
+                    console.assert(dt == 5.0)
+                    aInput.outs("Pass: test47", "testSuccessQML")
+                }, {name: "test47__", after: "test47_", replace: true})
+
+                Pipeline2.run("test47", 1)
+            }
+
             Component.onCompleted: {
                 Pipeline2.add(function(aInput){
                     test_pass++
                     console.log("Success: " + aInput.data() + "(" + test_pass + "/" + test_sum + ")")
+                    aInput.out()
                 }, {name: "testSuccessQML"})
 
                 Pipeline2.add(function(aInput){
                     test_pass--
                     console.log("Fail: " + aInput.data() + "(" + test_pass + "/" + test_sum + ")")
+                    aInput.out()
                 }, {name: "testFailQML"})
 
                 unit_test = {
-                    test31: test31
+                    test31: test31,
+                    test32: test32,
+                    test33: test33,
+                    test34: test34,
+                    test35: test35,
+                    test38: test38,
+                    test39: test39,
+                    test40: test40,
+                    test41: test41,
+                    test42: test42,
+                    test43: test43,
+                    test43__: test43__,
+                    test44: test44,
+                    test45: test45,
+                    test47: test47
                 }
                 test28()
                 test31_()
+                test32_()
+                test33_()
+                test36()
+                test37()
+                test38_()
+                test39_()
+                test40()
+                test41_()
+                test46()
 
                 Pipeline2.add(function(aInput){
                     var dt = aInput.data()
@@ -167,7 +438,7 @@ ApplicationWindow {
                     for (var i in dt)
                         if (unit_test[i])
                             unit_test[i]()
-                }, {name: "unitTestQML", external: true})
+                }, {name: "unitTestQML", external: "js"})
 
                 Pipeline.add(function(aInput){
                     console.assert(aInput.data()["test8"] === "test8")

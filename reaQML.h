@@ -1,7 +1,6 @@
 #include "rea.h"
 #include <QJSValue>
 #include <QQmlEngine>
-#include <QQmlApplicationEngine>
 
 namespace rea4 {
 
@@ -12,10 +11,8 @@ public:
     pipelineQML();
 protected:
     void execute(const QString& aName, std::shared_ptr<rea4::stream0> aStream, const QJsonObject& aSync = QJsonObject(), bool aFromOutside = false) override;
-    void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync = QJsonObject()) override;
+    void tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, const QString& aFlag) override;
 };
-
-extern QQmlApplicationEngine* qml_engine;
 
 class qmlScopeCache : public QObject{
     Q_OBJECT
@@ -46,69 +43,6 @@ private:
     std::shared_ptr<stream<QJSValue>> m_stream;
 };
 
-template <typename T>
-class valType{
-public:
-    static T data(const QJSValue&){
-        return T();
-    }
-};
-
-template <>
-class valType<QJsonObject>{
-public:
-    static QJsonObject data(const QJSValue& aValue){
-        return QJsonObject::fromVariantMap(aValue.toVariant().toMap());
-    }
-};
-
-template <>
-class valType<QJsonArray>{
-public:
-    static QJsonArray data(const QJSValue& aValue){
-        return QJsonArray::fromVariantList(aValue.toVariant().toList());
-    }
-};
-
-template <>
-class valType<QString>{
-public:
-    static QString data(const QJSValue& aValue){
-        return aValue.toString();
-    }
-};
-
-template <>
-class valType<double>{
-public:
-    static double data(const QJSValue& aValue){
-        return aValue.toNumber();
-    }
-};
-
-template <>
-class valType<bool>{
-public:
-    static bool data(const QJSValue& aValue){
-        return aValue.toBool();
-    }
-};
-
-template <>
-class funcType<QJSValue, QJSValue>{
-public:
-    void doEvent(QJSValue aFunc, std::shared_ptr<stream<QJSValue>> aStream){
-        if (!aFunc.equals(QJSValue::NullValue)){
-            QJSValueList paramlist;
-            qmlStream stm(aStream);
-            paramlist.append(qml_engine->toScriptValue(&stm));
-            aFunc.call(paramlist);
-        }
-    }
-};
-
-class qmlPipeline;
-
 class qmlPipe : public QObject
 {
     Q_OBJECT
@@ -126,7 +60,6 @@ private:
     pipeline* m_parent;
     QString m_name;
     QJsonObject m_param;
-    friend qmlPipeline;
 };
 
 class qmlPipeline : public QObject

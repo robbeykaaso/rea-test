@@ -1,3 +1,5 @@
+//#region utils
+
 var scripts = [];
 var modules = {};
 
@@ -93,7 +95,7 @@ function installScript(path, aCallback){  //ref from: https://www.cnblogs.com/cr
 }
 
 //https://blog.csdn.net/qq_39425958/article/details/87642137
-const generateUUID = function () {
+function generateUUID() {
     var s = [];
     var hexDigits = "0123456789abcdef";
     for (var i = 0; i < 36; i++) {
@@ -107,7 +109,9 @@ const generateUUID = function () {
     return uuid
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////
+//#endregion
+
+//#region linker;rea
 
 var PipelineJS
 var inited = false
@@ -155,7 +159,9 @@ function rea(aFunc){
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////
+//#endregion
+
+//#region rea-js
 
 class scopeCache {
     constructor(aData = {}){
@@ -246,6 +252,7 @@ class pipe {
 
     constructor(aParent, aName){
         this.m_parent = aParent
+        this.m_external = aParent.name()
         this.m_next = {}
         if (aName == null || aName == "")
             this.m_name = generateUUID()
@@ -263,7 +270,6 @@ class pipe {
     }
 
     next(aName, aTag = ""){
-        console.assert(!this.m_external)
         const tags = aTag.split(";")
         for (let i in tags)
             this.insertNext(aName, tags[i])
@@ -285,13 +291,13 @@ class pipe {
     }
 
     removeNext(aName){
-        console.assert(!this.m_external)
         delete this.m_next[aName]
     }
 
     initialize(aFunc, aParam){
         this.m_func = aFunc
-        this.m_external = aParam["external"]
+        if (aParam["external"] != null)
+            this.m_external = aParam["external"]
         return this
     }
 
@@ -311,8 +317,8 @@ class pipe {
     tryExecutePipe(aName, aStream){
         const pip = this.m_parent.find(aName)
         if (pip)
-            if (pip.m_external)
-                PipelineJS.tryExecuteOutsidePipe(aName, aStream.data(), aStream.tag(), aStream.scope().m_data, {})
+            if (pip.m_external != this.m_parent.name())
+                PipelineJS.tryExecuteOutsidePipe(aName, aStream.data(), aStream.tag(), aStream.scope().m_data, {}, pip.m_external)
             else
                 pip.execute(aStream)
     }
@@ -394,21 +400,26 @@ class pipeFuture extends pipe{
         let sync = {}
         if (this.m_next2.length)
             sync["next"] = this.m_next2
-        PipelineJS.tryExecuteOutsidePipe(this.actName(), aStream.data(), aStream.tag(), aStream.scope().m_data, sync)
+        PipelineJS.tryExecuteOutsidePipe(this.actName(), aStream.data(), aStream.tag(), aStream.scope().m_data, sync, "any")
     }
 }
 
 var pipeline_s = {}
-function pipelines(aName = ""){
+function pipelines(aName = "js"){
     if (!pipeline_s[aName])
-        pipeline_s[aName] = new pipeline()
+        pipeline_s[aName] = new pipeline(aName)
     return pipeline_s[aName]
 }
 
 class pipeline{
 
-    constructor(){
+    constructor(aName){
+        this.m_name = aName
         this.m_pipes = {}
+    }
+
+    name(){
+        return this.m_name
     }
 
     add(aFunc, aParam){
@@ -455,12 +466,9 @@ class pipeline{
     }
 
     execute(aName, aStream, aSync, aFromOutside = false){
-        let pip = this.find(aName, false)
-        if (!pip){
-            if (aFromOutside && !this.find(aName + "_pipe_add", false))
-                return
-            pip = this.find(aName)
-        }
+        let pip = this.find(aName, !aFromOutside)
+        if (!pip)
+            return
         pip = this.find(aName)
         if (aSync){
             if (Object.keys(aSync).length > 0)
@@ -529,8 +537,13 @@ class pipeDelegate extends pipe{
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-function test1(){
+//#endregion
+
+//#region test
+
+//#region test1;test2;test3;test4
+
+function test1_(){
     //test1 -> test1_next -> testSuccessJS
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 3)
@@ -540,10 +553,13 @@ function test1(){
         console.assert(aInput.data() == 3)
         aInput.outs("Pass: test1", "testSuccessJS")
     })
+}
+
+function test1(){
     pipelines().run("test1", 3)
 }
 
-function test2(){
+function test2_(){
     //test2 -> test2_ -> testSuccessJS
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 4)
@@ -553,11 +569,13 @@ function test2(){
         console.assert(aInput.data() == 5)
         aInput.outs("Pass: test2", "testSuccessJS")
     }, "", {name: "test2_"})
+}
 
+function test2(){
     pipelines().run("test2", 4)
 }
 
-function test3(){
+function test3_(){
     //test3 -> test3_0 -> test3__ -> testSuccessJS
     //                 -> testSuccessJS
     //test3_1 -> test3__
@@ -585,13 +603,16 @@ function test3(){
         aInput.outs("Pass: test3", "testSuccessJS")
         aInput.outs("Pass: test3_", "test3__")
     }, {name: "test3_0"})
+}
 
+function test3(){
     pipelines().run("test3", 66)
     pipelines().run("test3_1", "Pass: test3__")
 }
 
 function test4(){
     //test4 -> test4_(ex) -> test4__(ex) -> test_4 -> testSuccessJS
+    pipelines().find("test4_").removeNext("test4__")
     pipelines().find("test4__").removeNext("test_4")
 
     pipelines().add(function(aInput){
@@ -609,6 +630,10 @@ function test4(){
 
     pipelines().run("test4", 4)
 }
+
+//#endregion
+
+//#region test5;test6;test7;test8
 
 function test5(){
     //test5(ex) -> test_5 -> testSuccessJS
@@ -628,13 +653,13 @@ function test6(){
         console.assert(aInput.data() == 4)
         console.assert(aInput.scope().data("hello") == "world")
         aInput.setData(aInput.data() + 1).out()
-    }, {name: "test6_", external: true})
+    }, {name: "test6_", external: ""})
 
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 5)
         aInput.scope(true).cache("hello2", "world");
         aInput.setData(aInput.data() + 1).out()
-    }, {name: "test6__", external: true})
+    }, {name: "test6__", external: ""})
 
     return "test6"
 }
@@ -643,7 +668,7 @@ function test7(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == "hello")
         aInput.setData("world").out()
-    }, {name: "test7", external: true})
+    }, {name: "test7", external: ""})
 
     return "test7"
 }
@@ -652,7 +677,7 @@ function test8(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == "hello")
         aInput.outs("Pass: test8", "testSuccessJS")
-    }, {name: "test8", external: true})
+    }, {name: "test8", external: ""})
 
     return "test8"
 }
@@ -660,6 +685,10 @@ function test8(){
 function test8_(){
 
 }
+
+//#endregion
+
+//#region test9;test11;test12;test13
 
 function test9(){
     pipelines().run("test9", "hello")
@@ -682,11 +711,15 @@ function test13(){
     return "test13"
 }
 
+//#endregion
+
+//#region test14;test15;test16;test17
+
 function test14(){
     return "test14"
 }
 
-function test15(){
+function test15_(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 66)
         aInput.setData(77).out()
@@ -699,22 +732,24 @@ function test15(){
         console.assert(aInput.data() == 77)
         aInput.outs("Fail: test15", "testFailJS")
     }, "test15_")
+}
 
+function test15(){
     pipelines().run("test15", 66, "test15")
 }
 
-function test16(){
+function test16_(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 66)
         aInput.setData(77).out()
-    }, {name: "test16", external: true, type: "Partial"})
+    }, {name: "test16", external: "", type: "Partial"})
+}
+
+function test16(){
     return "test16"
 }
 
-function test17(){
-    pipelines().find("test17").removeNext("test17_")
-    pipelines().find("test17").removeNext("test17__")
-
+function test17_(){
     pipelines().find("test17")
     .nextFB(function(aInput){
         console.assert(aInput.data() == 77.0)
@@ -725,16 +760,21 @@ function test17(){
         aInput.outs("Fail: test17", "testFailJS")
     }, "test17_", {name: "test17__"})
 
+}
+
+function test17(){
     pipelines().run("test17", 66, "test17")
 }
+
+//#endregion
+
+//#region test18;test19;test20
 
 function test18(){
     return "test18"
 }
 
-function test19(){
-    pipelines().remove("test19")
-
+function test19_(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 66.0)
         aInput.out()
@@ -747,7 +787,9 @@ function test19(){
         console.assert(aInput.data() == 56.0)
         aInput.setData("Pass: test19").out()
     }, {name: "test19"})
+}
 
+function test19(){
     pipelines().run("test19_0", 66.0)
     pipelines().run("test19", 56.0)
 }
@@ -756,7 +798,7 @@ function test20(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 56.0)
         aInput.setData("Pass: test20").out()
-    }, {name: "test20", external: true})
+    }, {name: "test20", external: ""})
 
     return "test20"
 }
@@ -764,6 +806,10 @@ function test20(){
 function test20_(){
 
 }
+
+//#endregion
+
+//#region test21;test22;test23;test24
 
 function test21(){
     pipelines().add(function(aInput){
@@ -780,7 +826,7 @@ function test21(){
 }
 
 function test21_(){
-    return "test21"
+    return "test21_"
 }
 
 function test21__(){
@@ -814,12 +860,18 @@ async function test24(){
     await pipelines().input(24, "test24").asyncCallS("test24", "testSuccessJS")
 }
 
-function test25(){
+//#endregion
+
+//#region test25;test26;test27;test28
+
+function test25_(){
     pipelines().add(function(aInput){
         console.assert(aInput.data() == 25.0)
         aInput.setData("Pass: test25").out()
-    }, {name: "test25", external: true})
+    }, {name: "test25", external: ""})
+}
 
+function test25(){
     return "test25"
 }
 
@@ -835,12 +887,16 @@ function test28(){
     return "test28"
 }
 
+//#endregion
+
+//#region test29;test30;test31;test32
+
 function test29(){
     pipelines().add(function(aInput){
         context = aInput.data()
         console.assert(aInput.scope().data("ctx") == context)
         sendMessage("lala")
-    }, {name: "test29", external: true})
+    }, {name: "test29", external: ""})
 
     return "test29"
 }
@@ -852,6 +908,99 @@ function test30(){
 function test31(){
     return "test31"
 }
+
+function test32(){
+    return "test32"
+}
+
+//#endregion
+
+//#region test33;test34;test35;test36
+function test33(){
+    return "test33"
+}
+
+function test34(){
+    return "test34"
+}
+
+function test35(){
+    return "test35"
+}
+
+function test36(){
+    return "test36"
+}
+
+//#endregion
+
+//#region test37;test38;test39; test40
+
+function test37(){
+    return "test37"
+}
+
+function test38(){
+    return "test38"
+}
+
+function test39(){
+    return "test39"
+}
+
+function test40(){
+    return "test40"
+}
+
+//#endregion
+
+//#region test41;test42;test43;test44
+
+function test41(){
+    return "test41"
+}
+
+function test42(){
+    return "test42"
+}
+
+function test42_(){
+    return "test42"
+}
+
+function test43(){
+    return "test43"
+}
+
+function test43_(){
+    return "test43_"
+}
+
+function test43__(){
+    return "test43__"
+}
+
+function test44(){
+    return "test44"
+}
+
+function test45(){
+    return "test45"
+}
+
+//#endregion
+
+//#region test46
+
+function test46(){
+    return "test46"
+}
+
+function test47(){
+    return "test47"
+}
+
+//#endregion
 
 rea(e=>{
     let test_sum = 0
@@ -867,6 +1016,14 @@ rea(e=>{
         console.log("Fail: " + aInput.data() + "(" + test_pass + "/" + test_sum + ")")
     }, {name: "testFailJS"})
 
+    test1_()
+    test2_()
+    test3_()
+    test15_()
+    test16_()
+    test17_()
+    test19_()
+    test25_()
     pipelines().add(function(aInput){
         let test = [
             [test1, 1], //test js anonymous next
@@ -878,17 +1035,36 @@ rea(e=>{
             [test15, 1], //test js pipe partial
             [test17, 1], //test pipe mixture partial: js.future(c++)->js
             [test19, 1], //test js pipe delegate and pipe param
+
             [test20_, 1], //test pipe mixture delegate: c++->c++.future(js)->js, c++
+
             [test21, 1],  //test pipe mixture delegate: js->js.future(c++)->c++, js
             [test23, 1], //test js asyncCall
             [test24, 1] //test pipe mixture: js.asyncCall.c++
+
         ]
         for (let i in test)
             test_sum += test[i][1]
         for (let i in test)
             test[i][0]()
 
-        aInput.setData({
+        aInput.outs({
+                        [test31()]: 1, //test qml anonymous next
+                        [test32()]: 1, //test qml specific next
+                        [test33()]: 3,  //test qml pipe future
+                        [test34()]: 1,  //test pipe mixture: qml->qml.future(c++)->qml.future(c++)->qml; scopeCache
+                        [test35()]: 1, //test pipe mixture: qml.future(c++)->qml,
+                        [test38()]: 1, //test qml pipe partial
+                        [test39()]: 1, //test pipe mixture partial: qml.future(c++)->qml
+                        [test41()]: 1, //test qml pipe delegate and pipe param
+
+                        [test42_()]: 1, //test pipe mixture delegate: c++->c++.future(qml)->qml, c++
+                        [test43()]: 1,  //test pipe mixture delegate: qml->qml.future(c++)->c++, qml,
+                        [test44()]: 1, //test qml asyncCall
+                        [test45()]: 1, //test pipe mixture: qml.asyncCall.c++
+                        [test47()]: 1, //test qml aop and keep topo
+                    }, "unitTestQML")
+        aInput.outs({
             [test6()]: 1, //test pipe mixture: c++->c++.future(js)->c++.future(js)->c++ ; scopeCache
             [test7()]: 1, //test pipe mixture: c++.future(js)->c++
             [test8()]: 0, //test pipe mixture: c++.future(js)
@@ -896,10 +1072,12 @@ rea(e=>{
             [test11()]: 1, //test c++ anonymous next
             [test12()]: 1, //test c++ specific next
             [test13()]: 3, //test c++ pipe future
-            [test14()]: 1, //test c++ pipe future
+            [test14()]: 1, //test c++ pipe partial
             [test16()]: 1, //test pipe mixture partial: c++.future(js)->c++
             [test18()]: 1, //test c++ pipe delegate and pipe param
+
             [test20()]: 1, //test pipe mixture delegate: c++->c++.future(js)->js, c++
+
             [test21_()]: 1,  //test pipe mixture delegate: js->js.future(c++)->c++, js
             [test22()]: 1, //test c++ asyncCall
             [test25()]: 1, //test pipe mixture: c++.asyncCall.js
@@ -908,15 +1086,24 @@ rea(e=>{
             [test28()]: 1, //test pipe qml
             [test29()]: 1,  //test rea-js arbitrary type
             [test30()]: 1, //test c++ pipe parallel
-                    }).out()
+            [test36()]: 1, //test pipe mixture: c++->c++.future(qml)->c++.future(qml)->c++ ; scopeCache
+            [test37()]: 1, //test pipe mixture: c++.future(qml)->c++
+            [test40()]: 1, //test pipe mixture partial: c++.future(qml)->c++
+
+            [test42()]: 1, //test pipe mixture delegate: c++->c++.future(qml)->qml, c++
+            [test43_()]: 1,  //test pipe mixture delegate: qml->qml.future(c++)->c++, qml
+            [test46()]: 1, //test pipe mixture: c++.asyncCall.qml
+                    }, "unitTestC++")
     }, {name: "unitTest"})
     .next("unitTestC++")
     .nextF(function(aInput){
         aInput.setData({
-                           [test9()]: 0,
-                           [test21__()]: 0,
-                           [test31()]: 1
-                       }).out()
+            [test9()]: 0,
+            [test21__()]: 0,
+            [test43__()]: 0
+        }).out()
     })
     .next("unitTestQML")
 })
+
+//#endregion

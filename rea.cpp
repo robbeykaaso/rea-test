@@ -34,6 +34,7 @@ QVariantList scopeCache::toList(){
 
 pipe0::pipe0(pipeline* aParent, const QString& aName, int aThreadNo, bool aReplace){
     m_parent = aParent;
+    m_external = aParent->name();
     if (aName == "")
         m_name = rea::generateUUID();
     else
@@ -62,8 +63,7 @@ void pipe0::resetTopo(){
     m_after = "";
 }
 
-pipe0* pipe0::next(pipe0* aNext, const QString& aTag){
-    assert(!this->m_external);
+pipe0* pipe0::nextP(pipe0* aNext, const QString& aTag){
     auto tags = aTag.split(";");
     for (auto i : tags)
         insertNext(aNext->actName(), i);
@@ -71,7 +71,6 @@ pipe0* pipe0::next(pipe0* aNext, const QString& aTag){
 }
 
 pipe0* pipe0::next(const QString& aName, const QString& aTag){
-    assert(!this->m_external);
     auto tags = aTag.split(";");
     for (auto i : tags)
         insertNext(aName, i);
@@ -80,12 +79,10 @@ pipe0* pipe0::next(const QString& aName, const QString& aTag){
 }
 
 void pipe0::removeNext(const QString &aName){
-    assert(!this->m_external);
     m_next.remove(aName);
 }
 
 void pipe0::removeAspect(pipe0::AspectType aType, const QString& aAspect){
-    assert(!this->m_external);
     QString* tar = nullptr;
     if (aType == pipe0::AspectType::AspectAfter)
         tar = &m_after;
@@ -104,8 +101,8 @@ void pipe0::removeAspect(pipe0::AspectType aType, const QString& aAspect){
     }
 }
 
-pipe0* pipe0::nextB(pipe0* aNext, const QString& aTag){
-    next(aNext, aTag);
+pipe0* pipe0::nextPB(pipe0* aNext, const QString& aTag){
+    nextP(aNext, aTag);
     return this;
 }
 
@@ -117,8 +114,8 @@ pipe0* pipe0::nextB(const QString& aName, const QString& aTag){
 void pipe0::tryExecutePipe(const QString& aName, std::shared_ptr<stream0> aStream){
     auto pip = m_parent->find(aName);
     if (pip){
-        if (pip->m_external)
-            m_parent->tryExecutePipeOutside(pip->actName(), aStream, QJsonObject());
+        if (pip->m_external != m_parent->name())
+            m_parent->tryExecutePipeOutside(pip->actName(), aStream, QJsonObject(), pip->m_external);
         else
             pip->execute(aStream);
     }
@@ -183,12 +180,9 @@ private:
 static QHash<QString, pipeline*> pipelines;
 
 void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, bool aFromOutside){
-    auto pip = find(aName, false);
-    if (!pip){
-        if (aFromOutside && !find(aName + "_pipe_add", false))
-            return;
-        pip = find(aName);
-    }
+    auto pip = find(aName, !aFromOutside);
+    if (!pip)
+        return;
     if (!aSync.empty()){
         pip->resetTopo();
         auto nxts = aSync.value("next").toArray();
@@ -203,10 +197,14 @@ void pipeline::execute(const QString& aName, std::shared_ptr<stream0> aStream, c
     pip->execute(aStream);
 }
 
-void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync){
+void pipeline::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, const QString& aFlag){
     for (auto i : pipelines)
-        if (i != this)
-            i->execute(aName, aStream, aSync, true);
+        if (i != this){
+            if (aFlag == "any")
+                i->execute(aName, aStream, aSync, true);
+            else if (aFlag == i->name())
+                i->execute(aName, aStream, aSync);
+        }
 }
 
 void pipeFuture::execute(std::shared_ptr<stream0> aStream){
@@ -222,7 +220,7 @@ void pipeFuture::execute(std::shared_ptr<stream0> aStream){
         sync.insert("around", m_around);
     if (m_after != "")
         sync.insert("after", m_after);
-    m_parent->tryExecutePipeOutside(actName(), aStream, sync);
+    m_parent->tryExecutePipeOutside(actName(), aStream, sync, "any");
 }
 
 void pipeFuture::removeNext(const QString& aName){
@@ -303,6 +301,7 @@ pipeline* pipeline::instance(const QString& aName){
 }
 
 pipeline::pipeline(const QString& aName){
+    m_name = aName;
     if (aName == ""){
         QThreadPool::globalInstance()->setMaxThreadCount(8);
         supportType<QString>();

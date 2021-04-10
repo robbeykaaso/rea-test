@@ -1,8 +1,72 @@
 #include "reaQML.h"
 #include <QFile>
 #include <QJsonDocument>
+#include <QQmlApplicationEngine>
 
 namespace rea4 {
+
+static QQmlApplicationEngine* qml_engine = nullptr;
+
+template <typename T>
+class valType{
+public:
+    static T data(const QJSValue&){
+        return T();
+    }
+};
+
+template <>
+class valType<QJsonObject>{
+public:
+    static QJsonObject data(const QJSValue& aValue){
+        return QJsonObject::fromVariantMap(aValue.toVariant().toMap());
+    }
+};
+
+template <>
+class valType<QJsonArray>{
+public:
+    static QJsonArray data(const QJSValue& aValue){
+        return QJsonArray::fromVariantList(aValue.toVariant().toList());
+    }
+};
+
+template <>
+class valType<QString>{
+public:
+    static QString data(const QJSValue& aValue){
+        return aValue.toString();
+    }
+};
+
+template <>
+class valType<double>{
+public:
+    static double data(const QJSValue& aValue){
+        return aValue.toNumber();
+    }
+};
+
+template <>
+class valType<bool>{
+public:
+    static bool data(const QJSValue& aValue){
+        return aValue.toBool();
+    }
+};
+
+template <>
+class funcType<QJSValue, QJSValue>{
+public:
+    void doEvent(QJSValue aFunc, std::shared_ptr<stream<QJSValue>> aStream){
+        if (!aFunc.equals(QJSValue::NullValue)){
+            QJSValueList paramlist;
+            qmlStream stm(aStream);
+            paramlist.append(qml_engine->toScriptValue(&stm));
+            aFunc.call(paramlist);
+        }
+    }
+};
 
 template <>
 class rea4::typeTrait<QJSValue> : public typeTrait0{
@@ -15,7 +79,7 @@ public:
     }
 };
 
-pipelineQML::pipelineQML() : pipeline(){
+pipelineQML::pipelineQML() : pipeline("qml"){
     pipeline::instance()->supportType<QJSValue>();
 }
 
@@ -25,18 +89,18 @@ void pipelineQML::execute(const QString& aName, std::shared_ptr<rea4::stream0> a
     pipeline::execute(aName, std::make_shared<stream<QJSValue>>(qml_engine->toScriptValue(aStream->QData()), aStream->tag(), aStream->scope()), aSync, aFromOutside);
 }
 
-void pipelineQML::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync) {
+void pipelineQML::tryExecutePipeOutside(const QString& aName, std::shared_ptr<stream0> aStream, const QJsonObject& aSync, const QString& aFlag) {
     auto dt = std::dynamic_pointer_cast<stream<QJSValue>>(aStream)->data();
     if (dt.isObject())
-        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<QJsonObject>>(valType<QJsonObject>::data(dt), aStream->tag(), aStream->scope()), aSync);
+        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<QJsonObject>>(valType<QJsonObject>::data(dt), aStream->tag(), aStream->scope()), aSync, aFlag);
     else if (dt.isArray())
-        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<QJsonArray>>(valType<QJsonArray>::data(dt), aStream->tag(), aStream->scope()), aSync);
+        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<QJsonArray>>(valType<QJsonArray>::data(dt), aStream->tag(), aStream->scope()), aSync, aFlag);
     else if (dt.isString())
-        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<QString>>(valType<QString>::data(dt), aStream->tag(), aStream->scope()), aSync);
+        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<QString>>(valType<QString>::data(dt), aStream->tag(), aStream->scope()), aSync, aFlag);
     else if (dt.isBool())
-        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<bool>>(valType<bool>::data(dt), aStream->tag(), aStream->scope()), aSync);
+        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<bool>>(valType<bool>::data(dt), aStream->tag(), aStream->scope()), aSync, aFlag);
     else if (dt.isNumber())
-        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<double>>(valType<double>::data(dt), aStream->tag(), aStream->scope()), aSync);
+        pipeline::tryExecutePipeOutside(aName, std::make_shared<rea4::stream<double>>(valType<double>::data(dt), aStream->tag(), aStream->scope()), aSync, aFlag);
     else{
         throw "not supported type";
     }
@@ -45,8 +109,6 @@ void pipelineQML::tryExecutePipeOutside(const QString& aName, std::shared_ptr<st
 static regPip<std::shared_ptr<pipeline*>> reg_create_qmlpipeline([](stream<std::shared_ptr<pipeline*>>* aInput){
     *aInput->data() = new pipelineQML();
 }, rea::Json("name", "createqmlpipeline"));
-
-QQmlApplicationEngine* qml_engine = nullptr;
 
 qmlScopeCache::qmlScopeCache(std::shared_ptr<scopeCache> aScope){
     m_scope = aScope;
@@ -69,7 +131,11 @@ QJSValue qmlScopeCache::cache(const QString& aName, QJSValue aData){
 }
 
 QJSValue qmlScopeCache::data(const QString& aName){
-    return qml_engine->toScriptValue(m_scope->dataStream(aName)->QData());
+    auto stm = m_scope->dataStream(aName);
+    if (stm)
+        return qml_engine->toScriptValue(stm->QData());
+    else
+        return QJSValue::NullValue;
 }
 
 QJSValue qmlStream::data(){
@@ -128,8 +194,6 @@ QJSValue qmlPipe::nextB(const QString& aName, const QString& aTag){
     return qml_engine->toScriptValue(this);
 }
 
-static qmlPipeline* qml_pipeline;
-
 QString doAdd(QJSValue aFunc, const QJsonObject& aParam){
     auto pl = pipeline::instance("qml");
     auto tp = aParam.value("type");
@@ -142,7 +206,6 @@ QString doAdd(QJSValue aFunc, const QJsonObject& aParam){
 }
 
 QJSValue qmlPipe::nextF(QJSValue aFunc, const QString& aTag, const QJsonObject& aParam){
-    auto pip = qml_pipeline->add(aFunc, aParam);
     return next(doAdd(aFunc, aParam), aTag);
 }
 
@@ -177,8 +240,7 @@ QObject* qmlPipeline::qmlInstance(QQmlEngine *engine, QJSEngine *scriptEngine)
     Q_UNUSED(engine)
     Q_UNUSED(scriptEngine)
 
-    qml_pipeline = new qmlPipeline();
-    return qml_pipeline;
+    return new qmlPipeline();
 }
 
 QJSValue qmlPipeline::add(QJSValue aFunc, const QJsonObject& aParam){
