@@ -217,6 +217,7 @@ class stream {
                 stm = await stm.asyncCall(arguments[i])
             else
                 stm = await stm.asyncCallF(arguments[i][0], arguments[i][1])
+        return stm
     }
 
     async asyncCall(aName, aPipeline = pipelines()){

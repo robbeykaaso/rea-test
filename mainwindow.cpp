@@ -625,6 +625,16 @@ void MainWindow::unitTest(){
     rea4::test("test39");
     rea4::test("test43");
     rea4::test("test45");
+
+    rea4::pipeline::instance()->add<QString>([](rea4::stream<QString>* aInput){
+        QImage img("F:/3M/微信图片_20200916112142.png");
+        QBuffer bf;
+        bf.open(QIODevice::WriteOnly);
+        img.save(&bf, "PNG");
+        QString dt = bf.data().toBase64(QByteArray::Base64UrlEncoding);
+        aInput->setData(dt)->out();
+        bf.close();
+    }, rea::Json("name", "unitTestImage", "external", "js"));
 }
 
 MainWindow::~MainWindow()
