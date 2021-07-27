@@ -27,24 +27,11 @@ async function onBtnShowImage()
 {
     let dt = await pipelines().input("", "test24").asyncCallS("unitTestImage")
     let img = new Image(400, 300)
-    console.log(img)
+
     const cvs = document.getElementById("cvs")
     const ctx = cvs.getContext("2d")
     img.onload = function(){
-        console.log("lalala")
         ctx.drawImage(img, 0, 0, 400, 300)
     }
-    img.onerror = function(e){
-        for (let i in e){
-            console.log(i)
-            console.log(e[i])
-        }
-    }
-
     img.src = dt.data()
-
-   /* ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(200, 150);
-    ctx.stroke();*/
 }

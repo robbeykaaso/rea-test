@@ -9,8 +9,8 @@ static rea::regPip<QJsonObject> test_qsg([](rea::stream<QJsonObject>* aInput){
         return;
     }
 
-    auto pth = "D:/mywork/qsgboardtest/20201104215458785.png";
-    auto pth2 = "D:/mywork/qsgboardtest/微信图片_20200916112142.png";
+    auto pth = "D:/mywork2/qsgboardtest/20201104215458785.png";
+    auto pth2 = "D:/mywork2/qsgboardtest/微信图片_20200916112142.png";
     rea::pipeline::add<QJsonObject>([pth, pth2](rea::stream<QJsonObject>* aInput){
         QImage img(pth);
         rea::imagePool::cacheImage(pth, img);

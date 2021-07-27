@@ -630,8 +630,8 @@ void MainWindow::unitTest(){
         QImage img("F:/3M/微信图片_20200916112142.png");
         QBuffer bf;
         bf.open(QIODevice::WriteOnly);
-        img.save(&bf, "PNG");
-        QString dt = bf.data().toBase64(QByteArray::Base64UrlEncoding);
+        img.save(&bf, "png");
+        QString dt = "data:image/png;base64, " + bf.data().toBase64();
         aInput->setData(dt)->out();
         bf.close();
     }, rea::Json("name", "unitTestImage", "external", "js"));

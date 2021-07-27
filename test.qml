@@ -28,6 +28,10 @@ ApplicationWindow {
         Menu{
             title: "rea"
             MenuItem{
+                text: "breakPad"
+                onClicked: Pipeline.run("breakpad", 0, "", false)
+            }
+            MenuItem{
                 text: "TestRea"
                 onClicked: Pipeline.run("doUnitTest", 0, "", false)
             }
@@ -1244,19 +1248,23 @@ ApplicationWindow {
         caption: "gridder"
         content: Gridder{
             id: gridder_cld
+            property var invisible_tag: {"3": true, "4": true, "6": true}
 
             name: "demo"
-            size: [2, 2]
+            scale: {"layout": [2, 2]}
             com: Component{
                 Rectangle{
                     property string name
+                    property int index
                     width: parent.width / parent.columns
                     height: parent.height / parent.rows
 
                     color: "transparent"
                     border.color: "red"
-                    Component.onCompleted: {
-                        //console.log(name)
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: parent.index
                     }
                 }
             }
@@ -1269,27 +1277,37 @@ ApplicationWindow {
             {
                 cap: "6",
                 func: function(){
-                    Pipeline.run(gridder_cld.name + "_updateViewCount", {size: 6})
+                    Pipeline.run(gridder_cld.name + "_updateViewCount", {sum: 6})
                 }
             },
             {
                 cap: "10",
                 func: function(){
-                    gridder_cld.updateViewCount(10)
+                    gridder_cld.updateViewCount({sum: 10, invisible: gridder_cld.invisible_tag})
                 }
             },
             {
-                cap: "1",
+                cap: "10",
                 func: function(){
-                    Pipeline.run(gridder_cld.name + "_updateViewCount", {size: 1})
+                    gridder_cld.updateViewCount({sum: 10, layout: [2, 5]})
                 }
             },
             {
                 cap: "5x5",
                 func: function(){
-                    Pipeline.run(gridder_cld.name + "_updateViewCount", {size: [5, 5]})
+                    Pipeline.run(gridder_cld.name + "_updateViewCount", {layout: [5, 5]})
                 }
-            }
+            },
+            {
+                cap: "invisible",
+                func: function(){
+                    if (gridder_cld.invisible_tag[3])
+                        gridder_cld.invisible_tag = {}
+                    else
+                        gridder_cld.invisible_tag = {"3": true, "4": true, "6": true}
+                    Pipeline.run(gridder_cld.name + "_updateViewCount", {invisible: gridder_cld.invisible_tag})
+                }
+            },
 
         ]
     }
